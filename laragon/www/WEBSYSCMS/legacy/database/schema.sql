@@ -1,0 +1,388 @@
+-- FixFlow Appliance Repair & Maintenance CMS
+-- Full schema + demo data. Safe to re-run (drops and recreates all tables).
+
+CREATE DATABASE IF NOT EXISTS fixflow_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE fixflow_cms;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS service_reports;
+DROP TABLE IF EXISTS appointments;
+DROP TABLE IF EXISTS request_status_history;
+DROP TABLE IF EXISTS service_requests;
+DROP TABLE IF EXISTS service_categories;
+DROP TABLE IF EXISTS cms_pages;
+DROP TABLE IF EXISTS contact_messages;
+DROP TABLE IF EXISTS activity_logs;
+DROP TABLE IF EXISTS settings;
+DROP TABLE IF EXISTS users;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(190) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(40) DEFAULT NULL,
+    address VARCHAR(255) DEFAULT NULL,
+    role ENUM('admin', 'technician', 'customer') NOT NULL DEFAULT 'customer',
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    specialty VARCHAR(120) DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
+    avatar_color VARCHAR(20) NOT NULL DEFAULT '#2563eb',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_users_role (role),
+    INDEX idx_users_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE service_categories (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    slug VARCHAR(140) NOT NULL UNIQUE,
+    icon VARCHAR(40) NOT NULL DEFAULT 'wrench',
+    short_description VARCHAR(255) DEFAULT NULL,
+    description TEXT DEFAULT NULL,
+    base_price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_categories_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE service_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_no VARCHAR(30) NOT NULL UNIQUE,
+    customer_id INT NOT NULL,
+    category_id INT NOT NULL,
+    technician_id INT DEFAULT NULL,
+    service_type ENUM('repair', 'maintenance', 'installation', 'inspection') NOT NULL DEFAULT 'repair',
+    title VARCHAR(160) NOT NULL,
+    description TEXT NOT NULL,
+    brand VARCHAR(80) DEFAULT NULL,
+    model VARCHAR(80) DEFAULT NULL,
+    serial_no VARCHAR(80) DEFAULT NULL,
+    address VARCHAR(255) NOT NULL,
+    priority ENUM('low', 'medium', 'high', 'urgent') NOT NULL DEFAULT 'medium',
+    preferred_date DATE DEFAULT NULL,
+    preferred_time VARCHAR(30) DEFAULT NULL,
+    status ENUM('pending', 'assigned', 'accepted', 'in_progress', 'completed', 'cancelled') NOT NULL DEFAULT 'pending',
+    estimated_cost DECIMAL(10, 2) DEFAULT NULL,
+    final_cost DECIMAL(10, 2) DEFAULT NULL,
+    assigned_at DATETIME DEFAULT NULL,
+    started_at DATETIME DEFAULT NULL,
+    completed_at DATETIME DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_requests_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_requests_category FOREIGN KEY (category_id) REFERENCES service_categories(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_requests_technician FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_requests_status (status),
+    INDEX idx_requests_customer (customer_id),
+    INDEX idx_requests_technician (technician_id),
+    INDEX idx_requests_created (created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE request_status_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    note TEXT DEFAULT NULL,
+    changed_by INT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_history_request FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_history_user FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_history_request (request_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE appointments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL,
+    technician_id INT DEFAULT NULL,
+    scheduled_date DATE NOT NULL,
+    scheduled_time TIME NOT NULL,
+    duration_minutes INT NOT NULL DEFAULT 60,
+    status ENUM('scheduled', 'confirmed', 'rescheduled', 'completed', 'cancelled', 'no_show') NOT NULL DEFAULT 'scheduled',
+    notes TEXT DEFAULT NULL,
+    created_by INT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_appointments_request FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_appointments_technician FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_appointments_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_appointments_date (scheduled_date),
+    INDEX idx_appointments_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE service_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL UNIQUE,
+    technician_id INT DEFAULT NULL,
+    diagnosis TEXT DEFAULT NULL,
+    work_performed TEXT DEFAULT NULL,
+    parts_used TEXT DEFAULT NULL,
+    labor_hours DECIMAL(4, 1) DEFAULT NULL,
+    recommendations TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reports_request FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_reports_technician FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE feedback (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    request_id INT NOT NULL UNIQUE,
+    customer_id INT NOT NULL,
+    technician_id INT DEFAULT NULL,
+    rating TINYINT NOT NULL DEFAULT 5,
+    comment TEXT DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_feedback_request FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE,
+    CONSTRAINT fk_feedback_customer FOREIGN KEY (customer_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_feedback_technician FOREIGN KEY (technician_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE cms_pages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(160) NOT NULL,
+    slug VARCHAR(160) NOT NULL UNIQUE,
+    excerpt VARCHAR(255) DEFAULT NULL,
+    content LONGTEXT DEFAULT NULL,
+    meta_title VARCHAR(160) DEFAULT NULL,
+    meta_description VARCHAR(255) DEFAULT NULL,
+    status ENUM('published', 'draft') NOT NULL DEFAULT 'draft',
+    show_in_footer TINYINT(1) NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE contact_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    email VARCHAR(190) NOT NULL,
+    phone VARCHAR(40) DEFAULT NULL,
+    subject VARCHAR(160) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('new', 'read', 'replied') NOT NULL DEFAULT 'new',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_messages_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE settings (
+    setting_key VARCHAR(80) PRIMARY KEY,
+    setting_value TEXT DEFAULT NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE activity_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT DEFAULT NULL,
+    action VARCHAR(60) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    ip_address VARCHAR(45) DEFAULT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_logs_created (created_at)
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- Demo users
+-- ---------------------------------------------------------------------------
+INSERT INTO users (id, name, email, password_hash, phone, address, role, status, specialty, bio, avatar_color, created_at) VALUES
+(1, 'System Administrator', 'admin@fixflow.test', '$2y$10$VsiCH5CtVnXXmYpGK/5veuO/oioL.lPT935l4vc9BVY8XMuzQQ3NG', '+63 917 555 0100', 'FixFlow HQ, Quezon City', 'admin', 'active', NULL, 'Operations lead for the FixFlow service desk.', '#4f46e5', DATE_SUB(NOW(), INTERVAL 300 DAY)),
+(2, 'John Reyes', 'john@fixflow.test', '$2y$10$.uwRXopn4trNlq56Jf3Hx.Q5jZFbrPJLKAaHzycgz9C.P3zW99K2S', '+63 917 555 0111', 'Fairview, Quezon City', 'technician', 'active', 'Air Conditioning & Cooling', 'Certified HVAC technician with 9 years of field experience in residential split-type and window units.', '#2563eb', DATE_SUB(NOW(), INTERVAL 280 DAY)),
+(3, 'Maria Santos', 'maria@fixflow.test', '$2y$10$.uwRXopn4trNlq56Jf3Hx.Q5jZFbrPJLKAaHzycgz9C.P3zW99K2S', '+63 917 555 0112', 'Novaliches, Quezon City', 'technician', 'active', 'Laundry & Kitchen Appliances', 'Specialist in front-load washers, dryers, and dishwashers. TESDA NC II certified.', '#db2777', DATE_SUB(NOW(), INTERVAL 260 DAY)),
+(4, 'Pedro Dela Cruz', 'pedro@fixflow.test', '$2y$10$.uwRXopn4trNlq56Jf3Hx.Q5jZFbrPJLKAaHzycgz9C.P3zW99K2S', '+63 917 555 0113', 'Project 8, Quezon City', 'technician', 'active', 'Cooking & Built-in Appliances', 'Handles ovens, stoves, ranges, and built-in cooking units. LPG and electrical safety certified.', '#ea580c', DATE_SUB(NOW(), INTERVAL 240 DAY)),
+(5, 'Grace Villanueva', 'grace@fixflow.test', '$2y$10$.uwRXopn4trNlq56Jf3Hx.Q5jZFbrPJLKAaHzycgz9C.P3zW99K2S', '+63 917 555 0114', 'Cubao, Quezon City', 'technician', 'active', 'Refrigeration & Small Appliances', 'Refrigeration expert focused on inverter fridges, freezers, and compact appliances.', '#059669', DATE_SUB(NOW(), INTERVAL 210 DAY)),
+(6, 'Ana Cruz', 'ana@fixflow.test', '$2y$10$zBk5dDymg8acQeTUR/OLp.WJnQsgCQfgmWXt4QNubDx.0gONuRUFO', '+63 918 555 0201', '12 Mabini St, Brgy. San Roque, Quezon City', 'customer', 'active', NULL, NULL, '#7c3aed', DATE_SUB(NOW(), INTERVAL 200 DAY)),
+(7, 'Mark Lim', 'mark@fixflow.test', '$2y$10$zBk5dDymg8acQeTUR/OLp.WJnQsgCQfgmWXt4QNubDx.0gONuRUFO', '+63 918 555 0202', '88 Katipunan Ave, Loyola Heights, Quezon City', 'customer', 'active', NULL, NULL, '#0891b2', DATE_SUB(NOW(), INTERVAL 180 DAY)),
+(8, 'Liza Fernandez', 'liza@fixflow.test', '$2y$10$zBk5dDymg8acQeTUR/OLp.WJnQsgCQfgmWXt4QNubDx.0gONuRUFO', '+63 918 555 0203', '5 Sampaguita Lane, Pasig City', 'customer', 'active', NULL, NULL, '#c026d3', DATE_SUB(NOW(), INTERVAL 160 DAY)),
+(9, 'Ramon Garcia', 'ramon@fixflow.test', '$2y$10$zBk5dDymg8acQeTUR/OLp.WJnQsgCQfgmWXt4QNubDx.0gONuRUFO', '+63 918 555 0204', '31 Rizal St, Marikina City', 'customer', 'active', NULL, NULL, '#0d9488', DATE_SUB(NOW(), INTERVAL 140 DAY)),
+(10, 'Carlo Mendoza', 'carlo@fixflow.test', '$2y$10$zBk5dDymg8acQeTUR/OLp.WJnQsgCQfgmWXt4QNubDx.0gONuRUFO', '+63 918 555 0205', '9 Acacia Rd, Mandaluyong City', 'customer', 'inactive', NULL, NULL, '#64748b', DATE_SUB(NOW(), INTERVAL 120 DAY));
+
+-- ---------------------------------------------------------------------------
+-- Service categories
+-- ---------------------------------------------------------------------------
+INSERT INTO service_categories (id, name, slug, icon, short_description, description, base_price, status, created_at) VALUES
+(1, 'Air Conditioner', 'air-conditioner', 'snowflake', 'Cleaning, repair, and installation for split and window units.', 'Our licensed HVAC technicians service split-type, window, and cassette air conditioners. We handle preventive cleaning, refrigerant top-ups, PCB diagnostics, installation, and relocation. Every visit includes a performance check and a written service report.', 850.00, 'active', DATE_SUB(NOW(), INTERVAL 290 DAY)),
+(2, 'Refrigerator', 'refrigerator', 'fridge', 'Cooling problems, leaks, and inverter board repairs.', 'From weak cooling to loud compressors and water leaks, we diagnose refrigerator faults across all major brands. We stock common thermostats, fan motors, and gaskets, and provide clear recommendations before any part is replaced.', 950.00, 'active', DATE_SUB(NOW(), INTERVAL 288 DAY)),
+(3, 'Washing Machine', 'washing-machine', 'washer', 'Top-load and front-load repair, cleaning, and setup.', 'We repair drainage faults, spin issues, control board errors, and drum problems for top-load and front-load machines. Our technicians also perform deep cleaning and help you set up a new unit correctly.', 750.00, 'active', DATE_SUB(NOW(), INTERVAL 286 DAY)),
+(4, 'Oven & Stove', 'oven-stove', 'oven', 'Gas and electric range repair, cleaning, and safety checks.', 'Cooking appliance specialists for built-in ovens, freestanding ranges, gas stoves, and induction cooktops. We inspect ignition systems, thermocouples, heating elements, and gas lines with safety as the priority.', 800.00, 'active', DATE_SUB(NOW(), INTERVAL 284 DAY)),
+(5, 'Microwave', 'microwave', 'microwave', 'Heating failures, turntable, and door switch repairs.', 'We repair solo, grill, and inverter microwaves. Common fixes include magnetron replacement, door interlock switches, turntable motors, and control panel faults. All repairs are tested for radiation safety before handover.', 600.00, 'active', DATE_SUB(NOW(), INTERVAL 282 DAY)),
+(6, 'Dishwasher', 'dishwasher', 'droplet', 'Drainage, spray arm, and control fault diagnosis.', 'Our team services under-counter and freestanding dishwashers, resolving drainage, water inlet, and spray arm problems. We also descale units and advise on detergent and loading best practices.', 700.00, 'active', DATE_SUB(NOW(), INTERVAL 280 DAY)),
+(7, 'Water Heater', 'water-heater', 'activity', 'Tank, element, and safety valve servicing.', 'Repairs and maintenance for electric and gas water heaters. We test thermostats, heating elements, pressure relief valves, and electrical grounding so your unit stays safe and efficient.', 650.00, 'active', DATE_SUB(NOW(), INTERVAL 278 DAY)),
+(8, 'Dryer', 'dryer', 'refresh', 'Vent cleaning, heating, and drum repairs.', 'Clothes dryer servicing covering vent blockages, heating element faults, door switches, and belt replacement. We also perform lint and duct cleaning to reduce fire risk and improve drying time.', 700.00, 'active', DATE_SUB(NOW(), INTERVAL 276 DAY));
+
+-- ---------------------------------------------------------------------------
+-- Service requests
+-- ---------------------------------------------------------------------------
+INSERT INTO service_requests (id, ticket_no, customer_id, category_id, technician_id, service_type, title, description, brand, model, serial_no, address, priority, preferred_date, preferred_time, status, estimated_cost, final_cost, assigned_at, started_at, completed_at, created_at, updated_at) VALUES
+(1, 'SR-2026-0001', 6, 1, 2, 'repair', 'Aircon not cooling in the master bedroom', 'The split-type unit runs but only blows warm air. It has not been cleaned in over a year and there is a slight rattle when the compressor kicks in.', 'Daikin', 'FTKC25UV', 'DK-88214', '12 Mabini St, Brgy. San Roque, Quezon City', 'high', DATE_SUB(CURDATE(), INTERVAL 170 DAY), 'Morning (8AM - 12PM)', 'completed', 1500.00, 1850.00, DATE_SUB(NOW(), INTERVAL 171 DAY), DATE_SUB(NOW(), INTERVAL 170 DAY), DATE_SUB(NOW(), INTERVAL 169 DAY), DATE_SUB(NOW(), INTERVAL 172 DAY), DATE_SUB(NOW(), INTERVAL 169 DAY)),
+(2, 'SR-2026-0002', 7, 2, 5, 'maintenance', 'Refrigerator preventive maintenance', 'Annual cleaning and performance check for a two-door inverter fridge. Freezer works fine but there is frost buildup on the lower shelf.', 'Panasonic', 'NR-TS351', 'PN-77410', '88 Katipunan Ave, Loyola Heights, Quezon City', 'medium', DATE_SUB(CURDATE(), INTERVAL 150 DAY), 'Afternoon (1PM - 5PM)', 'completed', 950.00, 1150.00, DATE_SUB(NOW(), INTERVAL 151 DAY), DATE_SUB(NOW(), INTERVAL 150 DAY), DATE_SUB(NOW(), INTERVAL 150 DAY), DATE_SUB(NOW(), INTERVAL 153 DAY), DATE_SUB(NOW(), INTERVAL 150 DAY)),
+(3, 'SR-2026-0003', 8, 3, 3, 'repair', 'Front-load washer stops mid-cycle', 'The machine stops after the wash phase and shows an E4 error. Water does not drain completely.', 'LG', 'FC1409S2W', 'LG-33912', '5 Sampaguita Lane, Pasig City', 'high', DATE_SUB(CURDATE(), INTERVAL 140 DAY), 'Morning (8AM - 12PM)', 'completed', 1200.00, 1450.00, DATE_SUB(NOW(), INTERVAL 141 DAY), DATE_SUB(NOW(), INTERVAL 140 DAY), DATE_SUB(NOW(), INTERVAL 139 DAY), DATE_SUB(NOW(), INTERVAL 143 DAY), DATE_SUB(NOW(), INTERVAL 139 DAY)),
+(4, 'SR-2026-0004', 9, 4, 4, 'installation', 'Install new built-in gas oven', 'New built-in oven needs to be installed and tested. Existing cabinet cut-out is already prepared. LPG line is available.', 'Elba', 'EBO-965', 'EL-55120', '31 Rizal St, Marikina City', 'medium', DATE_SUB(CURDATE(), INTERVAL 120 DAY), 'Afternoon (1PM - 5PM)', 'completed', 1800.00, 2100.00, DATE_SUB(NOW(), INTERVAL 122 DAY), DATE_SUB(NOW(), INTERVAL 120 DAY), DATE_SUB(NOW(), INTERVAL 120 DAY), DATE_SUB(NOW(), INTERVAL 125 DAY), DATE_SUB(NOW(), INTERVAL 120 DAY)),
+(5, 'SR-2026-0005', 6, 5, 5, 'repair', 'Microwave runs but does not heat', 'The turntable spins and the light turns on but food stays cold. Unit is about four years old.', 'Sharp', 'R-2205', 'SH-91827', '12 Mabini St, Brgy. San Roque, Quezon City', 'medium', DATE_SUB(CURDATE(), INTERVAL 100 DAY), 'Morning (8AM - 12PM)', 'completed', 800.00, 950.00, DATE_SUB(NOW(), INTERVAL 101 DAY), DATE_SUB(NOW(), INTERVAL 100 DAY), DATE_SUB(NOW(), INTERVAL 100 DAY), DATE_SUB(NOW(), INTERVAL 103 DAY), DATE_SUB(NOW(), INTERVAL 100 DAY)),
+(6, 'SR-2026-0006', 7, 1, 2, 'maintenance', 'Quarterly aircon deep cleaning', 'Two split-type units need deep cleaning and gas pressure check. Both units are in the living area and second bedroom.', 'Carrier', 'FP-53K', 'CR-22419', '88 Katipunan Ave, Loyola Heights, Quezon City', 'low', DATE_SUB(CURDATE(), INTERVAL 90 DAY), 'Morning (8AM - 12PM)', 'completed', 1700.00, 1700.00, DATE_SUB(NOW(), INTERVAL 92 DAY), DATE_SUB(NOW(), INTERVAL 90 DAY), DATE_SUB(NOW(), INTERVAL 90 DAY), DATE_SUB(NOW(), INTERVAL 94 DAY), DATE_SUB(NOW(), INTERVAL 90 DAY)),
+(7, 'SR-2026-0007', 8, 2, 5, 'repair', 'Fridge leaks water onto the floor', 'There is a puddle of water under the refrigerator every morning. The freezer still cools well.', 'Samsung', 'RT29K', 'SM-67103', '5 Sampaguita Lane, Pasig City', 'high', DATE_SUB(CURDATE(), INTERVAL 75 DAY), 'Afternoon (1PM - 5PM)', 'completed', 1100.00, 1350.00, DATE_SUB(NOW(), INTERVAL 76 DAY), DATE_SUB(NOW(), INTERVAL 75 DAY), DATE_SUB(NOW(), INTERVAL 74 DAY), DATE_SUB(NOW(), INTERVAL 78 DAY), DATE_SUB(NOW(), INTERVAL 74 DAY)),
+(8, 'SR-2026-0008', 9, 3, 3, 'inspection', 'Washing machine making loud noise', 'The drum sounds like it is knocking during the spin cycle. Requesting an inspection before deciding on repair.', 'Whirlpool', '1CWTW4845', 'WP-11482', '31 Rizal St, Marikina City', 'medium', DATE_SUB(CURDATE(), INTERVAL 60 DAY), 'Morning (8AM - 12PM)', 'completed', 500.00, 500.00, DATE_SUB(NOW(), INTERVAL 61 DAY), DATE_SUB(NOW(), INTERVAL 60 DAY), DATE_SUB(NOW(), INTERVAL 60 DAY), DATE_SUB(NOW(), INTERVAL 63 DAY), DATE_SUB(NOW(), INTERVAL 60 DAY)),
+(9, 'SR-2026-0009', 6, 7, 4, 'repair', 'Water heater trips the breaker', 'The water heater trips the circuit breaker after about ten minutes of use. No visible leaks.', 'Stiebel Eltron', 'DHC-E', 'SE-44120', '12 Mabini St, Brgy. San Roque, Quezon City', 'urgent', DATE_SUB(CURDATE(), INTERVAL 45 DAY), 'Morning (8AM - 12PM)', 'completed', 900.00, 1250.00, DATE_SUB(NOW(), INTERVAL 46 DAY), DATE_SUB(NOW(), INTERVAL 45 DAY), DATE_SUB(NOW(), INTERVAL 45 DAY), DATE_SUB(NOW(), INTERVAL 47 DAY), DATE_SUB(NOW(), INTERVAL 45 DAY)),
+(10, 'SR-2026-0010', 7, 8, 3, 'installation', 'Install vented clothes dryer', 'New 8kg vented dryer needs installation. Venting through the utility wall has been prepared.', 'Electrolux', 'EDV805', 'EL-90031', '88 Katipunan Ave, Loyola Heights, Quezon City', 'medium', DATE_SUB(CURDATE(), INTERVAL 30 DAY), 'Afternoon (1PM - 5PM)', 'completed', 1200.00, 1400.00, DATE_SUB(NOW(), INTERVAL 32 DAY), DATE_SUB(NOW(), INTERVAL 31 DAY), DATE_SUB(NOW(), INTERVAL 30 DAY), DATE_SUB(NOW(), INTERVAL 34 DAY), DATE_SUB(NOW(), INTERVAL 30 DAY)),
+(11, 'SR-2026-0011', 8, 1, 2, 'repair', 'Aircon remote not communicating', 'The indoor unit beeps but does not respond to the remote. Batteries have been replaced.', 'Koppel', 'KCS-09', 'KP-55210', '5 Sampaguita Lane, Pasig City', 'low', DATE_SUB(CURDATE(), INTERVAL 20 DAY), 'Morning (8AM - 12PM)', 'completed', 600.00, 780.00, DATE_SUB(NOW(), INTERVAL 21 DAY), DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 23 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY)),
+(12, 'SR-2026-0012', 9, 6, 5, 'maintenance', 'Dishwasher deep clean and check', 'Dishes come out with a cloudy film and there is a smell after cycles. Requesting descaling and a spray arm check.', 'Bosch', 'SMS46MI01E', 'BS-77301', '31 Rizal St, Marikina City', 'medium', DATE_SUB(CURDATE(), INTERVAL 12 DAY), 'Afternoon (1PM - 5PM)', 'completed', 700.00, 900.00, DATE_SUB(NOW(), INTERVAL 13 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY), DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL 12 DAY)),
+(13, 'SR-2026-0013', 6, 2, 5, 'repair', 'Refrigerator freezer not freezing', 'The freezer compartment stays cool but never freezes food. There is also a faint clicking sound every few minutes.', 'LG', 'GR-B202', 'LG-61288', '12 Mabini St, Brgy. San Roque, Quezon City', 'urgent', DATE_SUB(CURDATE(), INTERVAL 1 DAY), 'Morning (8AM - 12PM)', 'in_progress', 1400.00, NULL, DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(14, 'SR-2026-0014', 7, 3, 3, 'repair', 'Washing machine will not spin', 'The washer fills and drains but refuses to spin. Clothes stay soaking wet and the panel shows UE.', 'Samsung', 'WA70H', 'SM-20017', '88 Katipunan Ave, Loyola Heights, Quezon City', 'high', CURDATE(), 'Afternoon (1PM - 5PM)', 'in_progress', 1000.00, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 3 HOUR), NULL, DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(15, 'SR-2026-0015', 8, 4, 4, 'repair', 'Oven door will not close properly', 'The oven door is misaligned and does not seal, so heat escapes. Hinges may need replacement.', 'La Germania', '9M10B', 'LG-10233', '5 Sampaguita Lane, Pasig City', 'medium', DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'Morning (8AM - 12PM)', 'accepted', 950.00, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, NULL, DATE_SUB(NOW(), INTERVAL 2 DAY), DATE_SUB(NOW(), INTERVAL 20 HOUR)),
+(16, 'SR-2026-0016', 9, 1, 2, 'installation', 'Install two split-type aircons', 'Two 1.5HP split-type units need wall mounting, piping, and testing in a new townhouse.', 'Midea', 'MSC-12CR', 'MD-55189', '31 Rizal St, Marikina City', 'high', DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'Morning (8AM - 12PM)', 'assigned', 4200.00, NULL, DATE_SUB(NOW(), INTERVAL 2 HOUR), NULL, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(17, 'SR-2026-0017', 6, 5, 5, 'inspection', 'Microwave sparking on the inside', 'Sparks appear near the waveguide cover when heating. Unit was unplugged for safety and needs inspection.', 'Panasonic', 'NN-ST34', 'PN-77520', '12 Mabini St, Brgy. San Roque, Quezon City', 'urgent', DATE_ADD(CURDATE(), INTERVAL 1 DAY), 'Afternoon (1PM - 5PM)', 'assigned', 500.00, NULL, DATE_SUB(NOW(), INTERVAL 5 HOUR), NULL, NULL, DATE_SUB(NOW(), INTERVAL 8 HOUR), DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(18, 'SR-2026-0018', 7, 7, NULL, 'repair', 'Water heater not heating', 'The shower runs cold. The indicator light is on but the water never warms up. Requesting a technician this week.', 'Ariston', 'SB35', NULL, '88 Katipunan Ave, Loyola Heights, Quezon City', 'high', DATE_ADD(CURDATE(), INTERVAL 3 DAY), 'Morning (8AM - 12PM)', 'pending', 900.00, NULL, NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 6 HOUR), DATE_SUB(NOW(), INTERVAL 6 HOUR)),
+(19, 'SR-2026-0019', 8, 8, NULL, 'repair', 'Dryer drum does not turn', 'The dryer powers on and heats but the drum stays still. Belt may be broken.', 'Whirlpool', 'DWG-7', 'WP-88812', '5 Sampaguita Lane, Pasig City', 'medium', DATE_ADD(CURDATE(), INTERVAL 4 DAY), 'Afternoon (1PM - 5PM)', 'pending', 850.00, NULL, NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 4 HOUR), DATE_SUB(NOW(), INTERVAL 4 HOUR)),
+(20, 'SR-2026-0020', 9, 2, 5, 'maintenance', 'Refrigerator annual service', 'Requesting annual cleaning and gas check for a side-by-side refrigerator. No current issues, preventive only.', 'Samsung', 'RS62', 'SM-90112', '31 Rizal St, Marikina City', 'low', DATE_ADD(CURDATE(), INTERVAL 5 DAY), 'Afternoon (1PM - 5PM)', 'pending', 950.00, NULL, NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 2 HOUR), DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(21, 'SR-2026-0021', 6, 6, NULL, 'installation', 'Dishwasher installation cancelled', 'Schedule changed, customer will rebook next month.', 'Bosch', 'SMS2ITI02E', NULL, '12 Mabini St, Brgy. San Roque, Quezon City', 'medium', NULL, NULL, 'cancelled', 1200.00, NULL, NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(22, 'SR-2026-0022', 7, 4, 4, 'repair', 'Stove igniter clicking continuously', 'The gas stove keeps clicking even after the burners are lit. Needs inspection of the ignition module.', 'Fujidenzo', 'FGH-200', 'FJ-51022', '88 Katipunan Ave, Loyola Heights, Quezon City', 'medium', DATE_ADD(CURDATE(), INTERVAL 2 DAY), 'Morning (8AM - 12PM)', 'accepted', 750.00, NULL, DATE_SUB(NOW(), INTERVAL 12 HOUR), NULL, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 12 HOUR));
+
+-- ---------------------------------------------------------------------------
+-- Status history
+-- ---------------------------------------------------------------------------
+INSERT INTO request_status_history (request_id, status, note, changed_by, created_at)
+SELECT id, 'pending', 'Service request submitted by the customer.', customer_id, created_at FROM service_requests;
+
+INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES
+(1, 'assigned', 'Assigned to John Reyes.', 1, DATE_SUB(NOW(), INTERVAL 171 DAY)),
+(1, 'accepted', 'Technician confirmed the visit.', 2, DATE_SUB(NOW(), INTERVAL 170 DAY)),
+(1, 'in_progress', 'On-site diagnosis started.', 2, DATE_SUB(NOW(), INTERVAL 170 DAY)),
+(1, 'completed', 'Cooling restored after cleaning and capacitor replacement.', 2, DATE_SUB(NOW(), INTERVAL 169 DAY)),
+(2, 'assigned', 'Assigned to Grace Villanueva.', 1, DATE_SUB(NOW(), INTERVAL 151 DAY)),
+(2, 'completed', 'Preventive maintenance completed.', 5, DATE_SUB(NOW(), INTERVAL 150 DAY)),
+(3, 'assigned', 'Assigned to Maria Santos.', 1, DATE_SUB(NOW(), INTERVAL 141 DAY)),
+(3, 'completed', 'Drain pump and filter cleared; cycle tested.', 3, DATE_SUB(NOW(), INTERVAL 139 DAY)),
+(4, 'assigned', 'Assigned to Pedro Dela Cruz.', 1, DATE_SUB(NOW(), INTERVAL 122 DAY)),
+(4, 'completed', 'Oven installed and gas line tested.', 4, DATE_SUB(NOW(), INTERVAL 120 DAY)),
+(5, 'completed', 'Magnetron replaced and safety tested.', 5, DATE_SUB(NOW(), INTERVAL 100 DAY)),
+(6, 'completed', 'Two units deep cleaned; gas pressure normal.', 2, DATE_SUB(NOW(), INTERVAL 90 DAY)),
+(7, 'completed', 'Defrost drain unclogged and gasket reseated.', 5, DATE_SUB(NOW(), INTERVAL 74 DAY)),
+(8, 'completed', 'Inspection completed; recommended drum bearing replacement.', 3, DATE_SUB(NOW(), INTERVAL 60 DAY)),
+(9, 'completed', 'Heating element replaced; breaker test passed.', 4, DATE_SUB(NOW(), INTERVAL 45 DAY)),
+(10, 'completed', 'Dryer installed and vent airflow verified.', 3, DATE_SUB(NOW(), INTERVAL 30 DAY)),
+(11, 'completed', 'Receiver board reset and remote paired.', 2, DATE_SUB(NOW(), INTERVAL 19 DAY)),
+(12, 'completed', 'Unit descaled and spray arms cleaned.', 5, DATE_SUB(NOW(), INTERVAL 12 DAY)),
+(13, 'assigned', 'Assigned to Grace Villanueva.', 1, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(13, 'accepted', 'Technician confirmed the visit.', 5, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+(13, 'in_progress', 'Diagnosing compressor and thermostat.', 5, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(14, 'assigned', 'Assigned to Maria Santos.', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(14, 'accepted', 'Technician confirmed the visit.', 3, DATE_SUB(NOW(), INTERVAL 20 HOUR)),
+(14, 'in_progress', 'Testing lid switch and drive coupling.', 3, DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(15, 'assigned', 'Assigned to Pedro Dela Cruz.', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(15, 'accepted', 'Technician confirmed the visit for tomorrow morning.', 4, DATE_SUB(NOW(), INTERVAL 20 HOUR)),
+(16, 'assigned', 'Assigned to John Reyes for installation.', 1, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(17, 'assigned', 'Assigned to Grace Villanueva for inspection.', 1, DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(21, 'cancelled', 'Cancelled by the customer. Will rebook next month.', 6, DATE_SUB(NOW(), INTERVAL 9 DAY)),
+(22, 'assigned', 'Assigned to Pedro Dela Cruz.', 1, DATE_SUB(NOW(), INTERVAL 12 HOUR)),
+(22, 'accepted', 'Technician confirmed the visit.', 4, DATE_SUB(NOW(), INTERVAL 11 HOUR));
+
+-- ---------------------------------------------------------------------------
+-- Appointments
+-- ---------------------------------------------------------------------------
+INSERT INTO appointments (request_id, technician_id, scheduled_date, scheduled_time, duration_minutes, status, notes, created_by, created_at) VALUES
+(1, 2, DATE_SUB(CURDATE(), INTERVAL 170 DAY), '09:00:00', 120, 'completed', 'Initial diagnosis and repair visit.', 1, DATE_SUB(NOW(), INTERVAL 171 DAY)),
+(2, 5, DATE_SUB(CURDATE(), INTERVAL 150 DAY), '14:00:00', 90, 'completed', 'Annual preventive maintenance.', 1, DATE_SUB(NOW(), INTERVAL 151 DAY)),
+(3, 3, DATE_SUB(CURDATE(), INTERVAL 140 DAY), '08:30:00', 120, 'completed', 'Drain system inspection.', 1, DATE_SUB(NOW(), INTERVAL 141 DAY)),
+(4, 4, DATE_SUB(CURDATE(), INTERVAL 120 DAY), '13:30:00', 150, 'completed', 'Oven installation and test.', 1, DATE_SUB(NOW(), INTERVAL 122 DAY)),
+(5, 5, DATE_SUB(CURDATE(), INTERVAL 100 DAY), '10:00:00', 60, 'completed', 'Microwave heating diagnosis.', 1, DATE_SUB(NOW(), INTERVAL 101 DAY)),
+(6, 2, DATE_SUB(CURDATE(), INTERVAL 90 DAY), '09:00:00', 180, 'completed', 'Deep cleaning for two units.', 1, DATE_SUB(NOW(), INTERVAL 92 DAY)),
+(7, 5, DATE_SUB(CURDATE(), INTERVAL 75 DAY), '15:00:00', 90, 'completed', 'Water leak inspection.', 1, DATE_SUB(NOW(), INTERVAL 76 DAY)),
+(8, 3, DATE_SUB(CURDATE(), INTERVAL 60 DAY), '10:30:00', 60, 'completed', 'Noise inspection only.', 1, DATE_SUB(NOW(), INTERVAL 61 DAY)),
+(9, 4, DATE_SUB(CURDATE(), INTERVAL 45 DAY), '09:30:00', 90, 'completed', 'Electrical fault and element check.', 1, DATE_SUB(NOW(), INTERVAL 46 DAY)),
+(10, 3, DATE_SUB(CURDATE(), INTERVAL 30 DAY), '13:00:00', 120, 'completed', 'Dryer installation.', 1, DATE_SUB(NOW(), INTERVAL 32 DAY)),
+(11, 2, DATE_SUB(CURDATE(), INTERVAL 20 DAY), '08:00:00', 60, 'completed', 'Remote and receiver diagnosis.', 1, DATE_SUB(NOW(), INTERVAL 21 DAY)),
+(12, 5, DATE_SUB(CURDATE(), INTERVAL 12 DAY), '14:30:00', 90, 'completed', 'Descaling and maintenance.', 1, DATE_SUB(NOW(), INTERVAL 13 DAY)),
+(13, 5, CURDATE(), '09:00:00', 120, 'confirmed', 'Follow-up diagnostics and compressor test. Customer advised to empty the freezer.', 1, DATE_SUB(NOW(), INTERVAL 3 DAY)),
+(14, 3, CURDATE(), '13:00:00', 120, 'confirmed', 'Spin fault repair.', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(15, 4, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '08:30:00', 90, 'scheduled', 'Oven hinge and door alignment.', 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(16, 2, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '08:00:00', 240, 'scheduled', 'Two-unit split-type installation. Customer will prepare the wall brackets area.', 1, DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(17, 5, DATE_ADD(CURDATE(), INTERVAL 1 DAY), '14:00:00', 60, 'scheduled', 'Microwave safety inspection.', 1, DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(22, 4, DATE_ADD(CURDATE(), INTERVAL 2 DAY), '09:00:00', 60, 'scheduled', 'Stove ignition module inspection.', 1, DATE_SUB(NOW(), INTERVAL 12 HOUR));
+
+-- ---------------------------------------------------------------------------
+-- Service reports
+-- ---------------------------------------------------------------------------
+INSERT INTO service_reports (request_id, technician_id, diagnosis, work_performed, parts_used, labor_hours, recommendations, created_at) VALUES
+(1, 2, 'Dirty evaporator coil and a weak run capacitor caused poor cooling.', 'Performed deep cleaning of indoor and outdoor units, replaced the run capacitor, and recharged refrigerant lines.', '35uF run capacitor, R32 refrigerant top-up', 2.0, 'Schedule deep cleaning every six months and clean the filter monthly.', DATE_SUB(NOW(), INTERVAL 169 DAY)),
+(2, 5, 'Normal frost buildup due to a partially blocked defrost drain.', 'Cleaned condenser coils, cleared the defrost drain, checked door gaskets, and verified thermostat calibration.', 'None', 1.5, 'Leave a 5cm gap behind the unit and avoid overloading the shelves.', DATE_SUB(NOW(), INTERVAL 150 DAY)),
+(3, 3, 'Drain pump filter clogged with lint, causing the E4 error.', 'Cleaned the drain filter and pump housing, reset the control board, and ran a full test cycle.', 'Drain filter gasket', 1.5, 'Clean the lint filter after every load and run a drum clean cycle monthly.', DATE_SUB(NOW(), INTERVAL 139 DAY)),
+(4, 4, 'New unit installation. Existing cut-out and gas line compatible.', 'Mounted the oven, connected the gas line, tested ignition and thermostat, and checked for leaks.', 'Flexible gas hose, thread seal tape', 2.5, 'Use the range hood when cooking and have the gas line checked annually.', DATE_SUB(NOW(), INTERVAL 120 DAY)),
+(5, 5, 'Magnetron failed; high-voltage diode also degraded.', 'Replaced magnetron and diode, cleaned the waveguide, and verified heating and door interlocks.', 'Magnetron, HV diode', 1.0, 'Avoid running the unit empty and keep the waveguide cover clean.', DATE_SUB(NOW(), INTERVAL 100 DAY)),
+(6, 2, 'Both units had restricted airflow from dirty coils and filters.', 'Deep cleaned two split-type units, checked refrigerant pressure, and tightened loose fan mounts.', 'Coil cleaner, electrical tape', 3.0, 'Book quarterly cleaning and avoid using the unit with clogged filters.', DATE_SUB(NOW(), INTERVAL 90 DAY)),
+(7, 5, 'Defrost drain tube blocked by debris, causing overflow.', 'Unclogged the drain tube, reseated the door gasket, and checked the defrost heater.', 'None', 1.5, 'Keep the drain pan clean and ensure the unit sits level.', DATE_SUB(NOW(), INTERVAL 74 DAY)),
+(8, 3, 'Worn drum bearing causing knocking during spin.', 'Inspected the drive system and confirmed the bearing is worn. Customer opted to defer the repair.', 'None', 1.0, 'Replace the drum bearing soon to avoid damage to the outer tub.', DATE_SUB(NOW(), INTERVAL 60 DAY)),
+(9, 4, 'Heating element shorted, tripping the breaker.', 'Replaced the heating element, checked grounding, tested the thermostat and pressure relief valve.', 'Heating element, thermal fuse', 1.5, 'Install a dedicated breaker and avoid covering the unit.', DATE_SUB(NOW(), INTERVAL 45 DAY)),
+(10, 3, 'New dryer installation. Vent path measured and cleared.', 'Installed the dryer, connected the vent duct, checked leveling, and tested the heating cycle.', 'Vent duct, aluminum tape', 2.0, 'Clean the lint filter after each load and inspect the duct every six months.', DATE_SUB(NOW(), INTERVAL 30 DAY)),
+(11, 2, 'Receiver board lost pairing with the remote control.', 'Reset the indoor receiver board, re-paired the remote, and tested all modes.', 'None', 1.0, 'Replace remote batteries every six months.', DATE_SUB(NOW(), INTERVAL 19 DAY)),
+(12, 5, 'Limescale buildup and blocked spray arm jets.', 'Descaling cycle performed, spray arms removed and cleaned, filter assembly serviced.', 'Descaler solution', 1.5, 'Use rinse aid and clean the filter weekly.', DATE_SUB(NOW(), INTERVAL 12 DAY));
+
+-- ---------------------------------------------------------------------------
+-- Feedback
+-- ---------------------------------------------------------------------------
+INSERT INTO feedback (request_id, customer_id, technician_id, rating, comment, created_at) VALUES
+(1, 6, 2, 5, 'John arrived on time and explained everything clearly. The aircon is ice cold again.', DATE_SUB(NOW(), INTERVAL 168 DAY)),
+(2, 7, 5, 4, 'Thorough maintenance visit. Would have liked a heads-up before arrival but overall excellent.', DATE_SUB(NOW(), INTERVAL 149 DAY)),
+(3, 8, 3, 5, 'Maria found the drainage issue quickly and even cleaned the filter for us.', DATE_SUB(NOW(), INTERVAL 138 DAY)),
+(4, 9, 4, 5, 'Clean installation and Pedro tested everything twice. Very professional.', DATE_SUB(NOW(), INTERVAL 119 DAY)),
+(5, 6, 5, 5, 'Fast microwave repair. Grace even checked the door seals for safety.', DATE_SUB(NOW(), INTERVAL 99 DAY)),
+(6, 7, 2, 5, 'Both units are working great after the deep clean. Booked our next service already.', DATE_SUB(NOW(), INTERVAL 89 DAY)),
+(7, 8, 5, 4, 'Leak is fixed. Arrived a little later than the window but kept us updated.', DATE_SUB(NOW(), INTERVAL 73 DAY)),
+(8, 9, 3, 5, 'Honest advice on the bearing repair. Appreciate not being pushed into an upsell.', DATE_SUB(NOW(), INTERVAL 59 DAY)),
+(9, 6, 4, 5, 'Breaker issue solved the same day. Pedro is very knowledgeable about electrical safety.', DATE_SUB(NOW(), INTERVAL 44 DAY)),
+(10, 7, 3, 4, 'Dryer works perfectly. Installation was tidy and the venting advice was useful.', DATE_SUB(NOW(), INTERVAL 29 DAY)),
+(11, 8, 2, 5, 'Quick fix and very friendly service.', DATE_SUB(NOW(), INTERVAL 18 DAY)),
+(12, 9, 5, 5, 'Dishwasher is sparkling again. Great preventive maintenance.', DATE_SUB(NOW(), INTERVAL 11 DAY));
+
+-- ---------------------------------------------------------------------------
+-- CMS pages
+-- ---------------------------------------------------------------------------
+INSERT INTO cms_pages (title, slug, excerpt, content, meta_title, meta_description, status, show_in_footer, created_at, updated_at) VALUES
+('About FixFlow', 'about', 'A service desk built to make appliance repair simple, transparent, and reliable.', '<h2>Service that respects your time</h2><p>FixFlow started with a simple frustration: booking an appliance repair should not mean endless calls, uncertain arrival windows, and paper receipts that disappear. We built a single platform where customers can book, track, and review every service visit — and where technicians have everything they need to do great work.</p><p>Today our network of vetted technicians handles air conditioners, refrigerators, laundry machines, cooking appliances, and more across Metro Manila. Every job is backed by a written service report and a transparent cost estimate approved before work begins.</p><h3>What we stand for</h3><ul><li><strong>Clarity.</strong> Real ticket tracking, clear estimates, and no surprise charges.</li><li><strong>Craftsmanship.</strong> Certified technicians who explain the diagnosis in plain language.</li><li><strong>Accountability.</strong> Every visit ends with a service report and a chance to rate the work.</li></ul><p>Whether it is a squeaky dryer or a full aircon installation, FixFlow keeps the process organized from request to review.</p>', 'About FixFlow', 'Learn how FixFlow organizes appliance repair and maintenance from booking to service report.', 'published', 1, DATE_SUB(NOW(), INTERVAL 250 DAY), DATE_SUB(NOW(), INTERVAL 20 DAY)),
+('Terms of Service', 'terms', 'The rules that keep FixFlow bookings fair and clear for everyone.', '<h2>1. Booking and confirmation</h2><p>Submitting a request does not automatically confirm an appointment. A FixFlow coordinator assigns a qualified technician and publishes a schedule, which you can view in your customer dashboard. You may cancel requests that have not yet started.</p><h2>2. Estimates and approvals</h2><p>Estimated costs are based on the selected service category and the information you provide. Final costs may change if the on-site diagnosis reveals additional faults. Technicians will explain any change before proceeding.</p><h2>3. Service reports</h2><p>Completed jobs include a service report describing the diagnosis, work performed, parts used, and recommendations. Please review the report in your dashboard.</p><h2>4. Feedback</h2><p>After a job is completed you may submit a rating and comment. Feedback helps us maintain service quality and may be featured on our website without personal contact details.</p><h2>5. Liability</h2><p>FixFlow technicians follow standard safety procedures. Customers are responsible for providing accurate appliance details, safe access, and disclosure of known hazards. Warranty on parts follows the manufacturer or supplier terms.</p>', 'Terms of Service', 'Read the FixFlow terms covering bookings, estimates, service reports, and feedback.', 'published', 1, DATE_SUB(NOW(), INTERVAL 240 DAY), DATE_SUB(NOW(), INTERVAL 60 DAY)),
+('Privacy Policy', 'privacy', 'How we collect, use, and protect the information you share with FixFlow.', '<h2>Information we collect</h2><p>When you create an account or submit a service request we collect your name, email address, phone number, service address, appliance details, and request history. Technicians see only the information required to complete the assigned job.</p><h2>How we use information</h2><p>We use your information to schedule visits, assign technicians, generate service reports, provide support, and improve the platform. We do not sell personal data.</p><h2>Data retention</h2><p>Service records are retained for warranty, accounting, and quality assurance purposes. You may request account deactivation by contacting our support team.</p><h2>Security</h2><p>Passwords are hashed, access is role-based, and administrative actions are logged. Report any privacy concern to our support address and we will respond promptly.</p>', 'Privacy Policy', 'How FixFlow collects, uses, and protects customer and technician information.', 'published', 1, DATE_SUB(NOW(), INTERVAL 240 DAY), DATE_SUB(NOW(), INTERVAL 70 DAY)),
+('Service Guide', 'service-guide', 'How to prepare for a technician visit and what to expect.', '<h2>Before the visit</h2><ol><li>Clear the area around the appliance so the technician can work safely.</li><li>Have the brand, model, and serial number ready if possible.</li><li>Note any error codes or unusual sounds you have observed.</li><li>Secure pets and inform us of any access restrictions.</li></ol><h2>During the visit</h2><p>Your technician will confirm the diagnosis and estimate before starting billable work. Ask questions at any point — our team is trained to explain the issue in plain language.</p><h2>After the visit</h2><p>Review the service report in your dashboard, keep the receipt for warranty purposes, and leave feedback so we can keep improving. If the issue returns within the warranty window, open a new request and reference the original ticket number.</p>', 'FixFlow Service Guide', 'Prepare for your appliance repair visit with this simple FixFlow checklist.', 'published', 0, DATE_SUB(NOW(), INTERVAL 200 DAY), DATE_SUB(NOW(), INTERVAL 40 DAY)),
+('Careers', 'careers', 'We are always looking for careful, curious technicians.', '<h2>Join the FixFlow network</h2><p>We work with technicians who take pride in diagnostics, communication, and cleanup. If you have experience with major appliances and want a steady stream of scheduled work with clear job details, send us a message through the contact page and mention your specialty.</p><p>This page is still a draft and is not visible on the public site.</p>', 'Careers at FixFlow', 'Technician opportunities with the FixFlow appliance service network.', 'draft', 0, DATE_SUB(NOW(), INTERVAL 30 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY));
+
+-- ---------------------------------------------------------------------------
+-- Settings
+-- ---------------------------------------------------------------------------
+INSERT INTO settings (setting_key, setting_value) VALUES
+('site_name', 'FixFlow'),
+('site_tagline', 'Appliance repair, organized.'),
+('contact_email', 'hello@fixflow.test'),
+('contact_phone', '+63 917 555 0134'),
+('contact_address', 'Unit 4B, 128 Aurora Blvd, Quezon City, Metro Manila'),
+('business_hours', 'Mon - Sat, 8:00 AM - 7:00 PM'),
+('currency_symbol', '₱'),
+('hero_title', 'Appliance trouble? Consider it handled.'),
+('hero_subtitle', 'Report the problem, get matched with a certified technician, and track every step of the repair from request to signed-off service report.'),
+('about_intro', 'FixFlow is a service desk for appliance repair and maintenance. We connect households and businesses with vetted technicians, schedule visits, and keep the whole process organized in one place.'),
+('support_hours', 'Emergency line available daily until 10:00 PM'),
+('facebook_url', 'https://facebook.com/fixflow'),
+('instagram_url', 'https://instagram.com/fixflow'),
+('footer_note', 'Serving Metro Manila with careful diagnostics, transparent pricing, and technicians who show up.');
+
+-- ---------------------------------------------------------------------------
+-- Contact messages
+-- ---------------------------------------------------------------------------
+INSERT INTO contact_messages (name, email, phone, subject, message, status, created_at) VALUES
+('Patricia Ong', 'patricia.ong@example.com', '+63 919 555 0301', 'Do you service commercial kitchen equipment?', 'Hi, we run a small cafe and need servicing for a commercial oven and two under-counter chillers. Do you cover commercial units or only residential appliances?', 'new', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+('Daniel Reyes', 'daniel.reyes@example.com', '+63 919 555 0302', 'Reschedule request for SR-2026-0016', 'Good day, I would like to move the aircon installation to the weekend if possible. Please let me know available slots.', 'read', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+('Mika Domingo', 'mika.domingo@example.com', NULL, 'Partnership inquiry', 'We are a property management company handling 120 condo units. Can we arrange a monthly maintenance package with priority scheduling?', 'replied', DATE_SUB(NOW(), INTERVAL 3 DAY));
+
+-- ---------------------------------------------------------------------------
+-- Activity log seed
+-- ---------------------------------------------------------------------------
+INSERT INTO activity_logs (user_id, action, description, ip_address, created_at) VALUES
+(1, 'login', 'Signed in to the portal', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(1, 'assign_technician', 'Assigned John Reyes to SR-2026-0016', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 2 HOUR)),
+(1, 'schedule', 'Scheduled appointment for SR-2026-0017', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 5 HOUR)),
+(5, 'login', 'Signed in to the portal', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(5, 'status_update', 'Moved SR-2026-0013 to in progress', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+(3, 'login', 'Signed in to the portal', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(3, 'status_update', 'Moved SR-2026-0014 to in progress', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 3 HOUR)),
+(6, 'login', 'Signed in to the portal', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 4 HOUR)),
+(6, 'create_request', 'Submitted service request SR-2026-0017', '127.0.0.1', DATE_SUB(NOW(), INTERVAL 8 HOUR));

@@ -1,0 +1,324 @@
+<?php
+
+class CustomerController extends Controller
+{
+    public function dashboard(): void
+    {
+        $user = $this->authUser();
+        $customerId = (int) $user['id'];
+
+        $counts = array_fill_keys(request_statuses(), 0);
+        foreach (Database::all('SELECT status, COUNT(*) AS total FROM service_requests WHERE customer_id = ? GROUP BY status', [$customerId]) as $row) {
+            $counts[$row['status']] = (int) $row['total'];
+        }
+
+        $total = array_sum($counts);
+        $active = $counts['pending'] + $counts['assigned'] + $counts['accepted'] + $counts['in_progress'];
+        $spent = (float) Database::value(
+            "SELECT COALESCE(SUM(final_cost), 0) FROM service_requests WHERE customer_id = ? AND status = 'completed'",
+            [$customerId]
+        );
+
+        $upcoming = Database::one(
+            "SELECT a.*, r.ticket_no, r.title, c.name AS category_name, c.icon AS category_icon, t.name AS technician_name
+             FROM appointments a
+             JOIN service_requests r ON r.id = a.request_id
+             JOIN service_categories c ON c.id = r.category_id
+             LEFT JOIN users t ON t.id = a.technician_id
+             WHERE r.customer_id = ? AND a.scheduled_date >= CURDATE() AND a.status IN ('scheduled', 'confirmed')
+             ORDER BY a.scheduled_date ASC, a.scheduled_time ASC LIMIT 1",
+            [$customerId]
+        );
+
+        $recent = Database::all(
+            'SELECT r.*, c.name AS category_name, c.icon AS category_icon, t.name AS technician_name
+             FROM service_requests r
+             JOIN service_categories c ON c.id = r.category_id
+             LEFT JOIN users t ON t.id = r.technician_id
+             WHERE r.customer_id = ?
+             ORDER BY r.created_at DESC LIMIT 6',
+            [$customerId]
+        );
+
+        $this->view('customer/dashboard', [
+            'title' => 'Overview',
+            'user' => $user,
+            'counts' => $counts,
+            'total' => $total,
+            'active' => $active,
+            'spent' => $spent,
+            'upcoming' => $upcoming,
+            'recent' => $recent,
+        ], 'app');
+    }
+
+    public function index(): void
+    {
+        $user = $this->authUser();
+        $customerId = (int) $user['id'];
+
+        $status = $_GET['status'] ?? '';
+        $search = trim((string) ($_GET['q'] ?? ''));
+        $page = (int) ($_GET['page'] ?? 1);
+        $perPage = 10;
+
+        $where = ['r.customer_id = ?'];
+        $params = [$customerId];
+
+        if (in_array($status, request_statuses(), true)) {
+            $where[] = 'r.status = ?';
+            $params[] = $status;
+        }
+
+        if ($search !== '') {
+            $where[] = '(r.ticket_no LIKE ? OR r.title LIKE ? OR c.name LIKE ?)';
+            $like = '%'.$search.'%';
+            array_push($params, $like, $like, $like);
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $total = (int) Database::value(
+            "SELECT COUNT(*) FROM service_requests r JOIN service_categories c ON c.id = r.category_id WHERE $whereSql",
+            $params
+        );
+
+        $pagination = $this->paginate($total, $perPage, $page);
+
+        $requests = Database::all(
+            "SELECT r.*, c.name AS category_name, c.icon AS category_icon, t.name AS technician_name
+             FROM service_requests r
+             JOIN service_categories c ON c.id = r.category_id
+             LEFT JOIN users t ON t.id = r.technician_id
+             WHERE $whereSql
+             ORDER BY r.created_at DESC
+             LIMIT {$perPage} OFFSET {$pagination['offset']}",
+            $params
+        );
+
+        $counts = array_fill_keys(request_statuses(), 0);
+        foreach (Database::all('SELECT status, COUNT(*) AS total FROM service_requests WHERE customer_id = ? GROUP BY status', [$customerId]) as $row) {
+            $counts[$row['status']] = (int) $row['total'];
+        }
+
+        $this->view('customer/requests', [
+            'title' => 'My requests',
+            'requests' => $requests,
+            'counts' => $counts,
+            'status' => $status,
+            'search' => $search,
+            'currentPage' => $pagination['page'],
+            'totalPages' => $pagination['pages'],
+            'total' => $total,
+        ], 'app');
+    }
+
+    public function create(): void
+    {
+        $user = $this->authUser();
+        $categories = Database::all("SELECT * FROM service_categories WHERE status = 'active' ORDER BY name");
+        $selected = $_GET['category'] ?? '';
+
+        $this->view('customer/request-form', [
+            'title' => 'New service request',
+            'user' => $user,
+            'categories' => $categories,
+            'selected' => $selected,
+        ], 'app');
+    }
+
+    public function store(): void
+    {
+        $user = $this->authUser();
+
+        $data = [
+            'category_id' => (int) $this->input('category_id'),
+            'service_type' => $this->input('service_type', 'repair'),
+            'title' => $this->input('title'),
+            'description' => $this->input('description'),
+            'brand' => $this->input('brand'),
+            'model' => $this->input('model'),
+            'serial_no' => $this->input('serial_no'),
+            'priority' => $this->input('priority', 'medium'),
+            'preferred_date' => $this->input('preferred_date'),
+            'preferred_time' => $this->input('preferred_time'),
+            'address' => $this->input('address'),
+        ];
+
+        $errors = [];
+
+        $category = Database::one("SELECT * FROM service_categories WHERE id = ? AND status = 'active'", [$data['category_id']]);
+        if (! $category) {
+            $errors['category_id'] = 'Choose a valid service category.';
+        }
+
+        if (! in_array($data['service_type'], ['repair', 'maintenance', 'installation', 'inspection'], true)) {
+            $errors['service_type'] = 'Choose a service type.';
+        }
+
+        if (mb_strlen($data['title']) < 5) {
+            $errors['title'] = 'Give your request a short, clear title.';
+        }
+
+        if (mb_strlen($data['description']) < 20) {
+            $errors['description'] = 'Please describe the issue in at least 20 characters.';
+        }
+
+        if ($data['address'] === '') {
+            $errors['address'] = 'We need a service address.';
+        }
+
+        if (! in_array($data['priority'], ['low', 'medium', 'high', 'urgent'], true)) {
+            $data['priority'] = 'medium';
+        }
+
+        if ($data['preferred_date'] !== '' && ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['preferred_date'])) {
+            $errors['preferred_date'] = 'Choose a valid preferred date.';
+        }
+
+        if ($errors) {
+            $this->backWithErrors($errors, '/customer/requests/new');
+        }
+
+        $ticket = generate_ticket_no();
+        $requestId = Database::insert(
+            'INSERT INTO service_requests
+                (ticket_no, customer_id, category_id, service_type, title, description, brand, model, serial_no, address, priority, preferred_date, preferred_time, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+            [
+                $ticket,
+                $user['id'],
+                $data['category_id'],
+                $data['service_type'],
+                $data['title'],
+                $data['description'],
+                $data['brand'] ?: null,
+                $data['model'] ?: null,
+                $data['serial_no'] ?: null,
+                $data['address'],
+                $data['priority'],
+                $data['preferred_date'] ?: null,
+                $data['preferred_time'] ?: null,
+                'pending',
+            ]
+        );
+
+        Database::insert(
+            'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
+            [$requestId, 'pending', 'Service request submitted by the customer.', $user['id']]
+        );
+
+        $this->log('create_request', 'Submitted service request '.$ticket);
+        $this->flash('success', 'Request submitted. Your ticket number is '.$ticket.'. We will assign a technician shortly.');
+        redirect('/customer/requests/'.$requestId);
+    }
+
+    public function show(array $params): void
+    {
+        $user = $this->authUser();
+        $request = $this->findRequest((int) ($params['id'] ?? 0), (int) $user['id']);
+
+        $history = Database::all(
+            'SELECT h.*, u.name AS changed_by_name
+             FROM request_status_history h
+             LEFT JOIN users u ON u.id = h.changed_by
+             WHERE h.request_id = ? ORDER BY h.created_at ASC, h.id ASC',
+            [$request['id']]
+        );
+
+        $appointment = Database::one(
+            'SELECT a.*, t.name AS technician_name
+             FROM appointments a LEFT JOIN users t ON t.id = a.technician_id
+             WHERE a.request_id = ? ORDER BY a.scheduled_date DESC, a.scheduled_time DESC LIMIT 1',
+            [$request['id']]
+        );
+
+        $report = Database::one('SELECT * FROM service_reports WHERE request_id = ?', [$request['id']]);
+        $feedback = Database::one('SELECT * FROM feedback WHERE request_id = ?', [$request['id']]);
+
+        $this->view('customer/request-detail', [
+            'title' => $request['ticket_no'],
+            'request' => $request,
+            'history' => $history,
+            'appointment' => $appointment,
+            'report' => $report,
+            'feedback' => $feedback,
+        ], 'app');
+    }
+
+    public function cancel(array $params): void
+    {
+        $user = $this->authUser();
+        $request = $this->findRequest((int) ($params['id'] ?? 0), (int) $user['id']);
+
+        if (! in_array($request['status'], ['pending', 'assigned', 'accepted'], true)) {
+            $this->flash('error', 'This request can no longer be cancelled. Please contact support.');
+            back('/customer/requests/'.$request['id']);
+        }
+
+        Database::exec("UPDATE service_requests SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$request['id']]);
+        Database::exec(
+            "UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE request_id = ? AND status IN ('scheduled', 'confirmed')",
+            [$request['id']]
+        );
+        Database::insert(
+            'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
+            [$request['id'], 'cancelled', 'Cancelled by the customer.', $user['id']]
+        );
+
+        $this->log('cancel_request', 'Cancelled service request '.$request['ticket_no']);
+        $this->flash('success', 'Request '.$request['ticket_no'].' has been cancelled.');
+        redirect('/customer/requests/'.$request['id']);
+    }
+
+    public function feedback(array $params): void
+    {
+        $user = $this->authUser();
+        $request = $this->findRequest((int) ($params['id'] ?? 0), (int) $user['id']);
+
+        if ($request['status'] !== 'completed') {
+            $this->flash('error', 'Feedback can be submitted once the job is completed.');
+            back('/customer/requests/'.$request['id']);
+        }
+
+        if (Database::one('SELECT id FROM feedback WHERE request_id = ?', [$request['id']])) {
+            $this->flash('error', 'Feedback has already been submitted for this request.');
+            back('/customer/requests/'.$request['id']);
+        }
+
+        $rating = (int) $this->input('rating', '0');
+        $comment = $this->input('comment');
+
+        if ($rating < 1 || $rating > 5) {
+            $this->flash('error', 'Choose a rating between 1 and 5 stars.');
+            back('/customer/requests/'.$request['id']);
+        }
+
+        Database::insert(
+            'INSERT INTO feedback (request_id, customer_id, technician_id, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+            [$request['id'], $user['id'], $request['technician_id'], $rating, $comment ?: null]
+        );
+
+        $this->log('feedback', 'Left a '.$rating.'-star review for '.$request['ticket_no']);
+        $this->flash('success', 'Thank you for the feedback!');
+        redirect('/customer/requests/'.$request['id']);
+    }
+
+    private function findRequest(int $id, int $customerId): array
+    {
+        $request = Database::one(
+            'SELECT r.*, c.name AS category_name, c.icon AS category_icon, c.base_price,
+                    t.name AS technician_name, t.phone AS technician_phone, t.specialty AS technician_specialty, t.avatar_color AS technician_color
+             FROM service_requests r
+             JOIN service_categories c ON c.id = r.category_id
+             LEFT JOIN users t ON t.id = r.technician_id
+             WHERE r.id = ? AND r.customer_id = ?',
+            [$id, $customerId]
+        );
+
+        if (! $request) {
+            $this->notFound('That service request could not be found.');
+        }
+
+        return $request;
+    }
+}
