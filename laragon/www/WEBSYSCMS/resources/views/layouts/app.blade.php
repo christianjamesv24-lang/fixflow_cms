@@ -70,6 +70,7 @@ $currentPath = '/' . trim(request()->path(), '/');
     <title><?= e($pageTitle) ?> · <?= e($siteName) ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+    @include('partials.brand-theme')
 </head>
 <body class="app-body">
 <div class="app-shell" data-app-shell>
@@ -77,7 +78,7 @@ $currentPath = '/' . trim(request()->path(), '/');
 
     <aside class="app-sidebar" data-sidebar>
         <a class="brand brand-light sidebar-brand" href="<?= e(url(dashboard_url())) ?>">
-            <span class="brand-mark"><?= icon('wrench') ?></span>
+            @include('partials.brand-mark')
             <span class="brand-text"><?= e($siteName) ?><small>Service desk</small></span>
         </a>
 

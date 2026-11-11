@@ -1,6 +1,11 @@
 <?php
 $siteName = setting('site_name', 'FixitNow');
 $currentUser = auth()->user();
+$adsensePublisherId = (string) config('adsense.publisher_id');
+$adsensePublicSlotId = (string) config('adsense.public_slot_id');
+$adsenseReady = config('adsense.enabled')
+    && preg_match('/\Aca-pub-\d+\z/', $adsensePublisherId) === 1
+    && ctype_digit($adsensePublicSlotId);
 $footerPages = db_all("SELECT title, slug FROM cms_pages WHERE status = 'published' AND show_in_footer = 1 ORDER BY title");
 $footerServices = db_all("SELECT name, slug FROM service_categories WHERE status = 'active' ORDER BY name LIMIT 5");
 ?>
@@ -13,6 +18,10 @@ $footerServices = db_all("SELECT name, slug FROM service_categories WHERE status
     <title><?= e($title ?? $siteName) ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+    @include('partials.brand-theme')
+    @if ($adsenseReady)
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?= e($adsensePublisherId) ?>" crossorigin="anonymous"></script>
+    @endif
 </head>
 <body class="public-body">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -20,7 +29,7 @@ $footerServices = db_all("SELECT name, slug FROM service_categories WHERE status
 <header class="site-header" data-header>
     <div class="container header-inner">
         <a class="brand" href="<?= e(url('/')) ?>">
-            <span class="brand-mark"><?= icon('wrench') ?></span>
+            @include('partials.brand-mark')
             <span class="brand-text"><?= e($siteName) ?><small>Appliance care</small></span>
         </a>
 
@@ -57,11 +66,15 @@ $footerServices = db_all("SELECT name, slug FROM service_categories WHERE status
     @yield('content')
 </main>
 
+@if ($adsenseReady)
+    @include('partials.adsense')
+@endif
+
 <footer class="site-footer">
     <div class="container footer-grid">
         <div class="footer-brand">
             <a class="brand brand-light" href="<?= e(url('/')) ?>">
-                <span class="brand-mark"><?= icon('wrench') ?></span>
+                @include('partials.brand-mark')
                 <span class="brand-text"><?= e($siteName) ?><small>Appliance care</small></span>
             </a>
             <p><?= e(setting('footer_note', 'Careful diagnostics, transparent pricing, and technicians who show up.')) ?></p>

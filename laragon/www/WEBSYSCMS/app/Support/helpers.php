@@ -39,11 +39,11 @@ function db_insert(string $sql, array $params = []): int
     return (int) DB::getPdo()->lastInsertId();
 }
 
-function settings(): array
+function settings(bool $refresh = false): array
 {
     static $settings = null;
 
-    if ($settings === null) {
+    if ($refresh || $settings === null) {
         $settings = [];
 
         try {

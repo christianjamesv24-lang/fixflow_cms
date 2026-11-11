@@ -9,6 +9,7 @@ $siteName = setting('site_name', 'FixitNow');
     <title><?= e($title ?? $siteName) ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+    @include('partials.brand-theme')
 </head>
 <body class="auth-body">
 @include('partials.flash')
@@ -16,7 +17,7 @@ $siteName = setting('site_name', 'FixitNow');
 <div class="auth-shell">
     <aside class="auth-aside">
         <a class="brand brand-light" href="<?= e(url('/')) ?>">
-            <span class="brand-mark"><?= icon('wrench') ?></span>
+            @include('partials.brand-mark')
             <span class="brand-text"><?= e($siteName) ?><small>Appliance care</small></span>
         </a>
 

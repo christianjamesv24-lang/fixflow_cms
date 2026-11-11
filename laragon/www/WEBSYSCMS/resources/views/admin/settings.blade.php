@@ -4,6 +4,7 @@
 <?php
 $siteName = setting('site_name', 'FixitNow');
 $siteTagline = setting('site_tagline', 'Appliance repair &amp; maintenance made simple');
+$siteLogo = setting('site_logo', '');
 ?>
 <div class="page-head">
     <div>
@@ -16,7 +17,7 @@ $siteTagline = setting('site_tagline', 'Appliance repair &amp; maintenance made 
     </div>
 </div>
 
-<form method="post" action="<?= e(url('/admin/settings')) ?>" class="form-card">
+<form method="post" action="<?= e(url('/admin/settings')) ?>" class="form-card" enctype="multipart/form-data">
     <?= csrf_field() ?>
 
     <div class="panel-head" style="padding:24px 28px 0;border:none">
@@ -37,6 +38,51 @@ $siteTagline = setting('site_tagline', 'Appliance repair &amp; maintenance made 
                 <label for="site_tagline">Tagline</label>
                 <input type="text" id="site_tagline" name="site_tagline" value="<?= e(setting('site_tagline', 'Appliance repair, organized.')) ?>">
             </div>
+        </div>
+
+        <div class="panel-head" style="padding:10px 0 0;border:none">
+            <div>
+                <h2 class="panel-title">Branding and theme</h2>
+                <p class="panel-sub">Customize the logo, colors, and font used across the website and portals.</p>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="brand_color">Primary color</label>
+                <input type="color" id="brand_color" name="brand_color" value="<?= e(setting('brand_color', '#2563eb')) ?>" class="<?= isset($errors['brand_color']) ? 'is-invalid' : '' ?>">
+                <?php if (isset($errors['brand_color'])): ?><span class="field-error"><?= e($errors['brand_color']) ?></span><?php endif; ?>
+            </div>
+            <div class="field">
+                <label for="accent_color">Accent color</label>
+                <input type="color" id="accent_color" name="accent_color" value="<?= e(setting('accent_color', '#0ea5e9')) ?>" class="<?= isset($errors['accent_color']) ? 'is-invalid' : '' ?>">
+                <?php if (isset($errors['accent_color'])): ?><span class="field-error"><?= e($errors['accent_color']) ?></span><?php endif; ?>
+            </div>
+        </div>
+
+        <div class="field">
+            <label for="site_font">Website font</label>
+            <select id="site_font" name="site_font" class="<?= isset($errors['site_font']) ? 'is-invalid' : '' ?>">
+                <?php foreach (config('branding.fonts') as $fontKey => $font): ?>
+                    <option value="<?= e($fontKey) ?>" <?= setting('site_font', 'system') === $fontKey ? 'selected' : '' ?>><?= e($font['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?php if (isset($errors['site_font'])): ?><span class="field-error"><?= e($errors['site_font']) ?></span><?php endif; ?>
+        </div>
+
+        <div class="field">
+            <label for="site_logo">Logo (JPEG, PNG, or WebP; up to 2 MB)</label>
+            <input type="file" id="site_logo" name="site_logo" accept="image/jpeg,image/png,image/webp" class="<?= isset($errors['site_logo']) ? 'is-invalid' : '' ?>">
+            <?php if (isset($errors['site_logo'])): ?><span class="field-error"><?= e($errors['site_logo']) ?></span><?php endif; ?>
+            <?php if ($siteLogo !== ''): ?>
+                <div style="margin-top:12px">
+                    <img src="<?= e(asset($siteLogo)) ?>" alt="Current site logo" class="brand-mark-image">
+                    <label style="display:block;margin-top:8px">
+                        <input type="checkbox" name="remove_site_logo" value="1">
+                        Remove current logo
+                    </label>
+                </div>
+            <?php endif; ?>
         </div>
 
         <div class="form-row">

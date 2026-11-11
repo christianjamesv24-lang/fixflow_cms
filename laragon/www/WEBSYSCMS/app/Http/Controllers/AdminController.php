@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Validator;
+use RuntimeException;
+
 class AdminController extends Controller
 {
     public function dashboard()
@@ -773,6 +778,7 @@ class AdminController extends Controller
             'site_name', 'site_tagline', 'contact_email', 'contact_phone', 'contact_address',
             'business_hours', 'support_hours', 'currency_symbol', 'hero_title', 'hero_subtitle',
             'about_intro', 'footer_note', 'facebook_url', 'instagram_url',
+            'brand_color', 'accent_color', 'site_font',
         ];
 
         $errors = [];
@@ -785,22 +791,83 @@ class AdminController extends Controller
             $errors['site_name'] = 'The site name is required.';
         }
 
+        foreach (['brand_color', 'accent_color'] as $colorField) {
+            if (preg_match('/\A#[0-9a-fA-F]{6}\z/', $this->input($colorField)) !== 1) {
+                $errors[$colorField] = 'Choose a valid six-digit hex color.';
+            }
+        }
+
+        if (! array_key_exists($this->input('site_font'), config('branding.fonts'))) {
+            $errors['site_font'] = 'Choose a supported font.';
+        }
+
+        $uploadValidator = Validator::make(request()->all(), [
+            'site_logo' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'],
+        ]);
+        $errors = array_merge($errors, $uploadValidator->errors()->toArray());
+
         if ($errors) {
             return $this->backWithErrors($errors, '/admin/settings');
         }
 
-        foreach ($allowed as $key) {
-            $value = $this->input($key);
-            db_exec(
-                'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
-                [$key, $value]
+        $oldLogo = (string) setting('site_logo', '');
+        $logoPath = $oldLogo;
+        $logo = request()->file('site_logo');
+
+        if ($logo !== null) {
+            $extension = $logo->guessExtension();
+
+            if (! in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                return $this->backWithErrors(['site_logo' => 'Upload a JPEG, PNG, or WebP image.'], '/admin/settings');
+            }
+
+            $directory = public_path('uploads/branding');
+            File::ensureDirectoryExists($directory);
+
+            $filename = bin2hex(random_bytes(16)).'.'.$extension;
+            $logo->move($directory, $filename);
+            $logoPath = 'uploads/branding/'.$filename;
+        } elseif ($this->input('remove_site_logo') === '1') {
+            $logoPath = '';
+        }
+
+        DB::transaction(function () use ($allowed, $logoPath): void {
+            foreach ($allowed as $key) {
+                DB::table('settings')->updateOrInsert(
+                    ['setting_key' => $key],
+                    ['setting_value' => $this->input($key)]
+                );
+            }
+
+            DB::table('settings')->updateOrInsert(
+                ['setting_key' => 'site_logo'],
+                ['setting_value' => $logoPath]
             );
+        });
+
+        settings(true);
+
+        if ($oldLogo !== $logoPath) {
+            $this->deleteManagedLogo($oldLogo);
         }
 
         $this->log('settings_update', 'Updated website settings');
         $this->flash('success', 'Settings saved. Public pages now use the updated details.');
 
         return redirect('/admin/settings');
+    }
+
+    private function deleteManagedLogo(string $logoPath): void
+    {
+        if (preg_match('/\Auploads\/branding\/[a-f0-9]{32}\.(?:jpe?g|png|webp)\z/i', $logoPath) !== 1) {
+            return;
+        }
+
+        $absolutePath = public_path($logoPath);
+
+        if (is_file($absolutePath) && ! File::delete($absolutePath)) {
+            throw new RuntimeException('The previous site logo could not be removed.');
+        }
     }
 
     private function findRequestWithDetails(int $id): array
