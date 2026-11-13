@@ -43,11 +43,13 @@ class AdminController extends Controller
              ORDER BY a.scheduled_time ASC LIMIT 6"
         );
 
+        $monthExpression = $this->monthBucketExpression();
         $monthly = db_all(
-            "SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS total
+            "SELECT {$monthExpression} AS ym, COUNT(*) AS total
              FROM service_requests
-             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
-             GROUP BY ym ORDER BY ym"
+             WHERE created_at >= ?
+             GROUP BY ym ORDER BY ym",
+            [now()->subMonths(5)->toDateString()]
         );
         $monthlyMap = [];
         foreach ($monthly as $row) {
@@ -641,8 +643,9 @@ class AdminController extends Controller
             [$start, $end]
         );
 
+        $monthExpression = $this->monthBucketExpression();
         $monthly = db_all(
-            "SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS total
+            "SELECT {$monthExpression} AS ym, COUNT(*) AS total
              FROM service_requests
              WHERE created_at BETWEEN ? AND ?
              GROUP BY ym ORDER BY ym",
@@ -889,5 +892,12 @@ class AdminController extends Controller
         }
 
         return $request;
+    }
+
+    private function monthBucketExpression(): string
+    {
+        return DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', created_at)"
+            : "DATE_FORMAT(created_at, '%Y-%m')";
     }
 }

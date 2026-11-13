@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: fixflow-cms-demo
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: FixitNow Demo
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: info
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /tmp/fixflow-demo.sqlite
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_ADMIN_EMAIL
+        value: fixitnow_admin@gmail.com
+      - key: DEMO_ADMIN_NAME
+        value: FixitNow Demo Admin
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: SUBSCRIPTION_PROOF_DISK
+        value: local

@@ -17,6 +17,7 @@ RUN apt-get update \
         libjpeg62-turbo-dev \
         libonig-dev \
         libpng-dev \
+        libsqlite3-dev \
         libzip-dev \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -28,6 +29,7 @@ RUN apt-get update \
         mbstring \
         opcache \
         pdo_mysql \
+        pdo_sqlite \
         zip \
     && sed -i 's/^Listen 80$/Listen 10000/' /etc/apache2/ports.conf \
     && a2enmod headers rewrite \

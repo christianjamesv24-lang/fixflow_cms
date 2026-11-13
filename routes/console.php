@@ -53,3 +53,46 @@ Artisan::command('admin:create {email=fixitnow_admin@gmail.com}', function (stri
 
     return 0;
 })->purpose('Create an admin account without a hardcoded password');
+
+Artisan::command('admin:create-demo', function () {
+    if (! filter_var((string) env('DEMO_MODE', false), FILTER_VALIDATE_BOOLEAN)) {
+        $this->error('This command is only available when DEMO_MODE is enabled.');
+
+        return 1;
+    }
+
+    $email = strtolower(trim((string) env('DEMO_ADMIN_EMAIL', '')));
+    $name = trim((string) env('DEMO_ADMIN_NAME', 'FixitNow Demo Admin'));
+    $password = (string) env('DEMO_ADMIN_PASSWORD', '');
+
+    if (! filter_var($email, FILTER_VALIDATE_EMAIL) || $name === '' || mb_strlen($name) > 120) {
+        $this->error('Set a valid demo admin email and name in the environment.');
+
+        return 1;
+    }
+
+    if (mb_strlen($password) < 12) {
+        $this->error('Set DEMO_ADMIN_PASSWORD to at least 12 characters.');
+
+        return 1;
+    }
+
+    if (User::query()->where('email', $email)->exists()) {
+        $this->info('Demo admin already exists; no account was changed.');
+
+        return 0;
+    }
+
+    User::query()->create([
+        'name' => $name,
+        'email' => $email,
+        'password_hash' => Hash::make($password),
+        'role' => 'admin',
+        'status' => 'active',
+        'avatar_color' => '#4f46e5',
+    ]);
+
+    $this->info('Demo admin account created.');
+
+    return 0;
+})->purpose('Create the demo admin from private environment variables');

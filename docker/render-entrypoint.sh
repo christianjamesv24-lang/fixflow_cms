@@ -25,6 +25,21 @@ mkdir -p \
 chown -R www-data:www-data storage bootstrap/cache
 
 php artisan storage:link --force
+
+if [ "${DEMO_MODE:-false}" = "true" ]; then
+    if [ "${DB_CONNECTION:-}" != "sqlite" ] || [ -z "${DB_DATABASE:-}" ] || [ "${DB_DATABASE:-}" = ":memory:" ]; then
+        echo "Demo mode requires a file-backed SQLite database." >&2
+        exit 1
+    fi
+
+    mkdir -p "$(dirname "$DB_DATABASE")"
+    touch "$DB_DATABASE"
+    chown www-data:www-data "$DB_DATABASE"
+    chmod 660 "$DB_DATABASE"
+    php artisan migrate --force
+    php artisan admin:create-demo
+fi
+
 php artisan config:cache
 
 exec apache2-foreground

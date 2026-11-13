@@ -17,3 +17,9 @@ php artisan admin:create fixitnow_admin@gmail.com
 The command prompts for the admin name and a password without echoing the password. Running `php artisan db:seed` does not create default users or delete existing data.
 
 Back up the MySQL service with `mysqldump`; do not use a persistent-disk snapshot to restore a live MySQL data directory.
+
+## Free Render demo
+
+`render-demo.yaml` defines a separate, free web service for demonstrations. It uses SQLite under `/tmp` instead of MySQL and creates a demo admin from the private `DEMO_ADMIN_PASSWORD` environment variable. Enter a password of at least 12 characters in Render when creating the Blueprint; do not commit or share it.
+
+This demo has no persistent disk or database service. Render can discard its SQLite database, uploaded files, and sessions when the free service spins down, restarts, or redeploys. Use only fake demo data; never accept real service requests, GCash payments, receipts, or personal information through it.
