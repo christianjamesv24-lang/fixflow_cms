@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+
+class User extends Authenticatable
+{
+    use Notifiable;
+
+    protected $table = 'users';
+
+    protected $guarded = [];
+
+    protected $hidden = [
+        'password_hash',
+        'remember_token',
+    ];
+
+    public function getAuthPassword(): string
+    {
+        return (string) $this->password_hash;
+    }
+
+    public function getAuthPasswordName(): string
+    {
+        return 'password_hash';
+    }
+
+    public function isRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+}
