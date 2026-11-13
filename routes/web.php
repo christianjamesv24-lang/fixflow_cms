@@ -3,12 +3,14 @@
 use App\Http\Controllers\AdminContentController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPeopleController;
+use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\TechnicianSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index']);
@@ -25,7 +27,7 @@ Route::get('/register', [AuthController::class, 'showRegister']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout']);
 
-Route::middleware('role:admin,technician')->group(function () {
+Route::middleware(['role:admin,technician', 'subscription'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index']);
     Route::get('/notifications/poll', [ChatController::class, 'notifications']);
     Route::get('/chat/messages', [ChatController::class, 'messages']);
@@ -50,6 +52,11 @@ Route::middleware('role:customer')->group(function () {
 });
 
 Route::middleware('role:technician')->group(function () {
+    Route::get('/technician/subscription', [TechnicianSubscriptionController::class, 'show']);
+    Route::post('/technician/subscription/payment', [TechnicianSubscriptionController::class, 'submitPayment']);
+});
+
+Route::middleware(['role:technician', 'subscription'])->group(function () {
     Route::get('/technician', [TechnicianController::class, 'dashboard']);
     Route::get('/technician/jobs', [TechnicianController::class, 'jobs']);
     Route::get('/technician/jobs/{id}', [TechnicianController::class, 'show'])->whereNumber('id');
@@ -61,6 +68,11 @@ Route::middleware('role:technician')->group(function () {
 });
 
 Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/subscriptions', [AdminSubscriptionController::class, 'index']);
+    Route::get('/admin/subscriptions/{paymentId}/proof', [AdminSubscriptionController::class, 'proof'])->whereNumber('paymentId');
+    Route::post('/admin/subscriptions/{paymentId}/approve', [AdminSubscriptionController::class, 'approve'])->whereNumber('paymentId');
+    Route::post('/admin/subscriptions/{paymentId}/reject', [AdminSubscriptionController::class, 'reject'])->whereNumber('paymentId');
+
     Route::get('/admin', [AdminController::class, 'dashboard']);
     Route::get('/admin/requests', [AdminController::class, 'requests']);
     Route::get('/admin/requests/{id}', [AdminController::class, 'requestShow'])->whereNumber('id');

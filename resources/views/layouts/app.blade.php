@@ -26,6 +26,7 @@ if ($role === 'admin') {
             ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
         ],
         'System' => [
+            ['label' => 'Subscriptions', 'path' => '/admin/subscriptions', 'icon' => 'credit-card'],
             ['label' => 'Settings', 'path' => '/admin/settings', 'icon' => 'settings'],
             ['label' => 'Activity log', 'path' => '/admin/activity', 'icon' => 'activity'],
         ],
@@ -39,6 +40,7 @@ if ($role === 'admin') {
             ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
         ],
         'Account' => [
+            ['label' => 'Subscription', 'path' => '/technician/subscription', 'icon' => 'credit-card'],
             ['label' => 'My profile', 'path' => '/profile', 'icon' => 'user'],
         ],
     ];

@@ -140,6 +140,8 @@ function status_badge(string $status): string
         'no_show' => ['No show', 'danger'],
         'active' => ['Active', 'success'],
         'inactive' => ['Inactive', 'muted'],
+        'approved' => ['Approved', 'success'],
+        'rejected' => ['Rejected', 'danger'],
         'new' => ['New', 'warn'],
         'read' => ['Read', 'muted'],
         'replied' => ['Replied', 'success'],

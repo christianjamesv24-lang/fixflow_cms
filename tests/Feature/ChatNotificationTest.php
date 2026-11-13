@@ -103,6 +103,19 @@ class ChatNotificationTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        if ($role === 'technician') {
+            DB::table('subscriptions')->insert([
+                'user_id' => $id,
+                'plan' => 'monthly',
+                'amount' => 500,
+                'status' => 'active',
+                'current_period_start' => now(),
+                'current_period_end' => now()->addMonth(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
         return User::query()->findOrFail($id);
     }
 }
