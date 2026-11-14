@@ -2,8 +2,7 @@
 
 @section('content')
 <?php
-$isEdit = $technician !== null;
-$action = $isEdit ? '/admin/technicians/' . $technician['id'] : '/admin/technicians';
+$action = '/admin/technicians/' . $technician['id'];
 $value = static function (string $key, $default = '') use ($technician) {
     return old($key, $technician[$key] ?? $default);
 };
@@ -14,10 +13,10 @@ $avatarColor = $value('avatar_color', '#2563eb');
         <nav class="breadcrumb" style="margin-bottom:8px">
             <a href="<?= e(url('/admin/technicians')) ?>">Technicians</a>
             <?= icon('chevron-right') ?>
-            <span><?= $isEdit ? 'Edit' : 'Add new' ?></span>
+            <span>Edit</span>
         </nav>
         <h1><?= e($title) ?></h1>
-        <p><?= $isEdit ? 'Update the technician profile, availability, and login.' : 'Create a field account and set their specialty.' ?></p>
+        <p>Update the technician profile, availability, and login.</p>
     </div>
     <div class="page-head-actions">
         <a class="btn btn-ghost" href="<?= e(url('/admin/technicians')) ?>"><?= icon('arrow-left') ?> Back to list</a>
@@ -64,9 +63,9 @@ $avatarColor = $value('avatar_color', '#2563eb');
 
         <div class="form-row">
             <div class="field">
-                <label for="password"><?= $isEdit ? 'New password (leave blank to keep current)' : 'Password *' ?></label>
+                <label for="password">New password (leave blank to keep current)</label>
                 <div class="input-wrap">
-                    <input type="password" id="password" name="password" class="<?= isset($errors['password']) ? 'is-invalid' : '' ?>" <?= $isEdit ? '' : 'required' ?> data-password-input autocomplete="new-password">
+                    <input type="password" id="password" name="password" class="<?= isset($errors['password']) ? 'is-invalid' : '' ?>" data-password-input autocomplete="new-password">
                     <button class="input-action" type="button" data-password-toggle aria-label="Show password"><?= icon('eye') ?></button>
                 </div>
                 <?php if (isset($errors['password'])): ?><span class="field-error"><?= e($errors['password']) ?></span><?php endif; ?>
@@ -91,7 +90,7 @@ $avatarColor = $value('avatar_color', '#2563eb');
 
         <div class="form-actions">
             <a class="btn btn-ghost" href="<?= e(url('/admin/technicians')) ?>">Cancel</a>
-            <button class="btn btn-primary" type="submit"><?= icon('check') ?> <?= $isEdit ? 'Save changes' : 'Create technician' ?></button>
+            <button class="btn btn-primary" type="submit"><?= icon('check') ?> Save changes</button>
         </div>
     </form>
 </div>

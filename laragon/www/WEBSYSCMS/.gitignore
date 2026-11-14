@@ -3,6 +3,9 @@
 .env
 .env.backup
 .env.production
+cookies.txt
+login-response.html
+.mcp.json
 .phpactor.json
 .phpunit.result.cache
 /.codex

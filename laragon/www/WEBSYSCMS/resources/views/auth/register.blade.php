@@ -11,6 +11,16 @@
     <?= csrf_field() ?>
 
     <div class="field">
+        <label for="role">Account type</label>
+        <select id="role" name="role" class="<?= isset($errors['role']) ? 'is-invalid' : '' ?>" required>
+            <option value="customer" <?= old('role', 'customer') === 'customer' ? 'selected' : '' ?>>Customer</option>
+            <option value="technician" <?= old('role') === 'technician' ? 'selected' : '' ?>>Technician</option>
+        </select>
+        <?php if (isset($errors['role'])): ?><span class="field-error"><?= e($errors['role']) ?></span><?php endif; ?>
+        <span class="field-hint">Technicians submit a subscription payment first. The admin approves the account and subscription after verifying payment.</span>
+    </div>
+
+    <div class="field">
         <label for="name">Full name</label>
         <input type="text" id="name" name="name" value="<?= e(old('name')) ?>" class="<?= isset($errors['name']) ? 'is-invalid' : '' ?>" autocomplete="name" required autofocus>
         <?php if (isset($errors['name'])): ?><span class="field-error"><?= e($errors['name']) ?></span><?php endif; ?>

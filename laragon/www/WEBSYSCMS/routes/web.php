@@ -3,12 +3,15 @@
 use App\Http\Controllers\AdminContentController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminPeopleController;
+use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\TechnicianSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index']);
@@ -17,6 +20,7 @@ Route::get('/services/{slug}', [HomeController::class, 'serviceShow']);
 Route::get('/about', [HomeController::class, 'about']);
 Route::get('/contact', [HomeController::class, 'contact']);
 Route::post('/contact', [HomeController::class, 'contactStore']);
+Route::post('/webhooks/paymongo', PayMongoWebhookController::class);
 Route::get('/p/{slug}', [HomeController::class, 'page']);
 
 Route::get('/login', [AuthController::class, 'showLogin']);
@@ -25,8 +29,9 @@ Route::get('/register', [AuthController::class, 'showRegister']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout']);
 
-Route::middleware('role:admin,technician')->group(function () {
+Route::middleware(['role:admin,technician', 'technician.approved', 'subscription'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index']);
+    Route::get('/notifications/poll', [ChatController::class, 'notifications']);
     Route::get('/chat/messages', [ChatController::class, 'messages']);
     Route::post('/chat/messages', [ChatController::class, 'send']);
     Route::post('/chat/mark-read', [ChatController::class, 'markRead']);
@@ -49,6 +54,15 @@ Route::middleware('role:customer')->group(function () {
 });
 
 Route::middleware('role:technician')->group(function () {
+    Route::get('/technician/subscription', [TechnicianSubscriptionController::class, 'show']);
+    Route::post('/technician/subscription/checkout', [TechnicianSubscriptionController::class, 'startPayMongoCheckout']);
+    Route::get('/technician/subscription/demo/{paymentId}', [TechnicianSubscriptionController::class, 'showDemoCheckout'])->whereNumber('paymentId');
+    Route::post('/technician/subscription/demo/{paymentId}/complete', [TechnicianSubscriptionController::class, 'completeDemoCheckout'])->whereNumber('paymentId');
+    Route::post('/technician/subscription/demo/{paymentId}/cancel', [TechnicianSubscriptionController::class, 'cancelDemoCheckout'])->whereNumber('paymentId');
+    Route::post('/technician/subscription/payment', [TechnicianSubscriptionController::class, 'submitPayment']);
+});
+
+Route::middleware(['role:technician', 'technician.approved', 'subscription'])->group(function () {
     Route::get('/technician', [TechnicianController::class, 'dashboard']);
     Route::get('/technician/jobs', [TechnicianController::class, 'jobs']);
     Route::get('/technician/jobs/{id}', [TechnicianController::class, 'show'])->whereNumber('id');
@@ -60,6 +74,11 @@ Route::middleware('role:technician')->group(function () {
 });
 
 Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/subscriptions', [AdminSubscriptionController::class, 'index']);
+    Route::get('/admin/subscriptions/{paymentId}/proof', [AdminSubscriptionController::class, 'proof'])->whereNumber('paymentId');
+    Route::post('/admin/subscriptions/{paymentId}/approve', [AdminSubscriptionController::class, 'approve'])->whereNumber('paymentId');
+    Route::post('/admin/subscriptions/{paymentId}/reject', [AdminSubscriptionController::class, 'reject'])->whereNumber('paymentId');
+
     Route::get('/admin', [AdminController::class, 'dashboard']);
     Route::get('/admin/requests', [AdminController::class, 'requests']);
     Route::get('/admin/requests/{id}', [AdminController::class, 'requestShow'])->whereNumber('id');
@@ -79,8 +98,6 @@ Route::middleware('role:admin')->group(function () {
     Route::post('/admin/settings', [AdminController::class, 'saveSettings']);
 
     Route::get('/admin/technicians', [AdminPeopleController::class, 'technicians']);
-    Route::get('/admin/technicians/create', [AdminPeopleController::class, 'technicianCreate']);
-    Route::post('/admin/technicians', [AdminPeopleController::class, 'technicianStore']);
     Route::get('/admin/technicians/{id}/edit', [AdminPeopleController::class, 'technicianEdit'])->whereNumber('id');
     Route::post('/admin/technicians/{id}', [AdminPeopleController::class, 'technicianUpdate'])->whereNumber('id');
     Route::post('/admin/technicians/{id}/delete', [AdminPeopleController::class, 'technicianDelete'])->whereNumber('id');

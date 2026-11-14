@@ -13,11 +13,11 @@ $unreadBadge = $notificationCount ?? 0;
         <p>Real-time communication with the other team role.</p>
     </div>
     <div class="page-head-actions">
-        <span class="status-badge success">Live</span>
+        <span class="status-badge success" data-chat-status aria-live="polite">Connecting...</span>
     </div>
 </div>
 
-<div class="chat-shell" data-chat-shell data-user-id="<?= e($user->id) ?>" data-peer-id="<?= e($partner['id'] ?? 0) ?>" data-conversation-id="<?= e($conversation['id'] ?? 0) ?>" data-chat-base="<?= e(url('/chat')) ?>">
+<div class="chat-shell" data-chat-shell data-user-id="<?= e($user->id) ?>" data-peer-id="<?= e($partner['id'] ?? 0) ?>" data-conversation-id="<?= e($conversation['id'] ?? 0) ?>" data-last-message-id="<?= e($chatMessages ? end($chatMessages)['id'] : 0) ?>" data-chat-base="<?= e(url('/chat')) ?>">
     <aside class="chat-sidebar">
         <div class="chat-user-card">
             <span class="avatar avatar-lg" style="background: <?= e($user->avatar_color ?? '#2563eb') ?>;"><?= e(strtoupper(substr($user->name, 0, 1))) ?></span>
@@ -145,7 +145,14 @@ $unreadBadge = $notificationCount ?? 0;
         var form = shell.querySelector('[data-chat-form]');
         var textarea = form.querySelector('textarea');
         var baseUrl = shell.getAttribute('data-chat-base');
-        var lastId = 0;
+        var status = document.querySelector('[data-chat-status]');
+        var lastId = Number(shell.getAttribute('data-last-message-id') || 0);
+        var loading = false;
+
+        function setConnectionState(isConnected) {
+            status.textContent = isConnected ? 'Live' : 'Reconnecting...';
+            status.classList.toggle('success', isConnected);
+        }
 
         function updateLastId(messages) {
             if (!Array.isArray(messages) || !messages.length) {
@@ -165,10 +172,6 @@ $unreadBadge = $notificationCount ?? 0;
             wrapper.innerHTML = '<div class="chat-bubble"><p>' + escapeHtml(message.message) + '</p><small>' + escapeHtml((message.sender_name || 'User')) + ' · ' + escapeHtml(formatTime(message.created_at)) + '</small></div>';
             messagesBox.appendChild(wrapper);
             messagesBox.scrollTop = messagesBox.scrollHeight;
-
-            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification('FixitNow chat', { body: (message.sender_name || 'User') + ': ' + message.message });
-            }
         }
 
         function escapeHtml(value) {
@@ -186,17 +189,39 @@ $unreadBadge = $notificationCount ?? 0;
         }
 
         function loadMessages() {
-            fetch(baseUrl + '/messages?last_id=' + lastId, { credentials: 'same-origin' })
-                .then(function (response) { return response.json(); })
-                .then(function (payload) {
-                    if (payload && payload.messages) {
-                        updateLastId(payload.messages);
-                        payload.messages.forEach(function (message) {
-                            appendMessage(message);
-                        });
+            if (loading) {
+                return;
+            }
+
+            loading = true;
+            fetch(baseUrl + '/messages?last_id=' + lastId, {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Chat refresh failed with status ' + response.status);
                     }
+
+                    return response.json();
                 })
-                .catch(function () {});
+                .then(function (payload) {
+                    if (!payload || !Array.isArray(payload.messages)) {
+                        throw new Error('Chat response was invalid.');
+                    }
+
+                    updateLastId(payload.messages);
+                    payload.messages.forEach(function (message) {
+                        appendMessage(message);
+                    });
+                    setConnectionState(true);
+                })
+                .catch(function () {
+                    setConnectionState(false);
+                })
+                .then(function () {
+                    loading = false;
+                });
         }
 
         form.addEventListener('submit', function (event) {
@@ -215,7 +240,15 @@ $unreadBadge = $notificationCount ?? 0;
                 credentials: 'same-origin',
                 body: JSON.stringify({ message: value })
             })
-                .then(function (response) { return response.json(); })
+                .then(function (response) {
+                    if (!response.ok) {
+                        return response.json().then(function (payload) {
+                            throw new Error(payload.error || 'Message could not be sent.');
+                        });
+                    }
+
+                    return response.json();
+                })
                 .then(function (payload) {
                     if (payload && payload.message) {
                         appendMessage(payload.message);
@@ -223,17 +256,15 @@ $unreadBadge = $notificationCount ?? 0;
                     textarea.value = '';
                     textarea.style.height = 'auto';
                 })
-                .catch(function () {});
+                .catch(function (error) {
+                    window.alert(error.message);
+                });
         });
 
         textarea.addEventListener('input', function () {
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 140) + 'px';
         });
-
-        if ('Notification' in window) {
-            Notification.requestPermission().catch(function () {});
-        }
 
         setInterval(loadMessages, 3000);
         loadMessages();

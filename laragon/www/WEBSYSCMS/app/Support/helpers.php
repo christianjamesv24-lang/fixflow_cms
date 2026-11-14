@@ -140,6 +140,8 @@ function status_badge(string $status): string
         'no_show' => ['No show', 'danger'],
         'active' => ['Active', 'success'],
         'inactive' => ['Inactive', 'muted'],
+        'approved' => ['Approved', 'success'],
+        'rejected' => ['Rejected', 'danger'],
         'new' => ['New', 'warn'],
         'read' => ['Read', 'muted'],
         'replied' => ['Replied', 'success'],
@@ -245,8 +247,8 @@ function log_activity(string $action, string $description): void
 {
     try {
         DB::insert(
-            'INSERT INTO activity_logs (user_id, action, description, ip_address, created_at) VALUES (?, ?, ?, ?, NOW())',
-            [auth()->id(), $action, $description, request()->ip()]
+            'INSERT INTO activity_logs (user_id, action, description, ip_address, created_at) VALUES (?, ?, ?, ?, ?)',
+            [auth()->id(), $action, $description, request()->ip(), now()]
         );
     } catch (Throwable $e) {
         // Logging should never break the request.

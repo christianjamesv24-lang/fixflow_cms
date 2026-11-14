@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'paymongo' => [
+        'secret_key' => env('PAYMONGO_SECRET_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'api_url' => 'https://api.paymongo.com/v2',
+    ],
+
+    'payments' => [
+        'demo_mode' => env('SUBSCRIPTION_DEMO_MODE', env('APP_ENV') === 'local'),
+        'vercel_environment' => env('VERCEL_ENV'),
+    ],
+
 ];

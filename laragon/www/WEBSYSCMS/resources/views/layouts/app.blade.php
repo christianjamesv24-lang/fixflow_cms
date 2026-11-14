@@ -23,8 +23,10 @@ if ($role === 'admin') {
             ['label' => 'Services', 'path' => '/admin/services', 'icon' => 'wrench'],
             ['label' => 'CMS pages', 'path' => '/admin/pages', 'icon' => 'file'],
             ['label' => 'Inbox', 'path' => '/admin/messages', 'icon' => 'message'],
+            ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
         ],
         'System' => [
+            ['label' => 'Subscriptions', 'path' => '/admin/subscriptions', 'icon' => 'credit-card'],
             ['label' => 'Settings', 'path' => '/admin/settings', 'icon' => 'settings'],
             ['label' => 'Activity log', 'path' => '/admin/activity', 'icon' => 'activity'],
         ],
@@ -35,8 +37,10 @@ if ($role === 'admin') {
             ['label' => 'Overview', 'path' => '/technician', 'icon' => 'grid', 'exact' => true],
             ['label' => 'Assigned jobs', 'path' => '/technician/jobs', 'icon' => 'clipboard'],
             ['label' => 'Schedule', 'path' => '/technician/schedule', 'icon' => 'calendar'],
+            ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
         ],
         'Account' => [
+            ['label' => 'Subscription', 'path' => '/technician/subscription', 'icon' => 'credit-card'],
             ['label' => 'My profile', 'path' => '/profile', 'icon' => 'user'],
         ],
     ];
@@ -56,6 +60,21 @@ if ($role === 'admin') {
 $unreadMessages = 0;
 if ($role === 'admin') {
     $unreadMessages = (int) db_value("SELECT COUNT(*) FROM contact_messages WHERE status = 'new'");
+}
+
+$notificationCount = 0;
+$lastNotificationId = 0;
+$notificationPollingEnabled = in_array($role, ['admin', 'technician'], true);
+
+if ($notificationPollingEnabled) {
+    $notificationCount = (int) db_value(
+        'SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0',
+        [$currentUser['id']]
+    );
+    $lastNotificationId = (int) db_value(
+        'SELECT COALESCE(MAX(id), 0) FROM user_notifications WHERE user_id = ?',
+        [$currentUser['id']]
+    );
 }
 
 $pageTitle = $title ?? 'Dashboard';
@@ -103,6 +122,9 @@ $currentPath = '/' . trim(request()->path(), '/');
                         <a class="sidebar-link <?= $isActive ? 'active' : '' ?>" href="<?= e(url($item['path'])) ?>">
                             <?= icon($item['icon']) ?>
                             <span><?= e($item['label']) ?></span>
+                            <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
+                                <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
+                            <?php endif; ?>
                             <?php if ($item['path'] === '/admin/messages' && $unreadMessages > 0): ?>
                                 <span class="nav-count"><?= $unreadMessages ?></span>
                             <?php endif; ?>
@@ -134,6 +156,20 @@ $currentPath = '/' . trim(request()->path(), '/');
 
             <div class="topbar-right">
                 <a class="icon-btn topbar-quick" href="<?= e(url(dashboard_url())) ?>" title="Dashboard"><?= icon('grid') ?></a>
+                <?php if ($notificationPollingEnabled): ?>
+                    <a class="icon-btn topbar-notifications"
+                       href="<?= e(url('/chat')) ?>"
+                       aria-label="<?= $notificationCount ?> unread notifications"
+                       title="Notifications"
+                       data-notification-poll
+                       data-notification-url="<?= e(url('/notifications/poll')) ?>"
+                       data-notification-target="<?= e(url('/chat')) ?>"
+                       data-last-notification-id="<?= $lastNotificationId ?>">
+                        <?= icon('info') ?>
+                        <span class="notification-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
+                    </a>
+                    <span class="sr-only" aria-live="polite" data-notification-status></span>
+                <?php endif; ?>
                 <details class="user-menu">
                     <summary>
                         <span class="avatar avatar-sm" style="background: <?= e($currentUser['avatar_color'] ?? '#2563eb') ?>"><?= e(initials($currentUser['name'] ?? 'U')) ?></span>
@@ -154,6 +190,9 @@ $currentPath = '/' . trim(request()->path(), '/');
         </header>
 
         @include('partials.flash')
+        <?php if ($notificationPollingEnabled): ?>
+            <div class="toast-stack" role="status" aria-live="polite" aria-atomic="false" data-notification-toasts></div>
+        <?php endif; ?>
 
         <main class="app-content">
             @yield('content')

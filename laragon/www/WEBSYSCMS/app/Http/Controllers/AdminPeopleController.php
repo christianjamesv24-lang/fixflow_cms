@@ -44,46 +44,6 @@ class AdminPeopleController extends Controller
         ]);
     }
 
-    public function technicianCreate()
-    {
-        return view('admin.technician-form', [
-            'title' => 'Add technician',
-            'technician' => null,
-        ]);
-    }
-
-    public function technicianStore()
-    {
-        $data = $this->technicianData();
-        $errors = $this->validateTechnician($data, null);
-
-        if ($errors) {
-            return $this->backWithErrors($errors, '/admin/technicians/create');
-        }
-
-        db_insert(
-            'INSERT INTO users (name, email, password_hash, phone, address, role, status, specialty, bio, avatar_color, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-            [
-                $data['name'],
-                $data['email'],
-                password_hash($data['password'], PASSWORD_DEFAULT),
-                $data['phone'] ?: null,
-                $data['address'] ?: null,
-                'technician',
-                $data['status'],
-                $data['specialty'] ?: null,
-                $data['bio'] ?: null,
-                $data['avatar_color'],
-            ]
-        );
-
-        $this->log('create_technician', 'Added technician '.$data['name']);
-        $this->flash('success', 'Technician '.$data['name'].' added successfully.');
-
-        return redirect('/admin/technicians');
-    }
-
     public function technicianEdit(int $id)
     {
         $technician = $this->findTechnician($id);
@@ -299,9 +259,7 @@ class AdminPeopleController extends Controller
             }
         }
 
-        if ($ignoreId === null && mb_strlen($data['password']) < 8) {
-            $errors['password'] = 'Set a password of at least 8 characters.';
-        } elseif ($data['password'] !== '' && mb_strlen($data['password']) < 8) {
+        if ($data['password'] !== '' && mb_strlen($data['password']) < 8) {
             $errors['password'] = 'Passwords must be at least 8 characters.';
         }
 

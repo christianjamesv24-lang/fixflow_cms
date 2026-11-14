@@ -42,6 +42,111 @@
         window.setTimeout(hide, 6000);
     });
 
+    var notificationControl = document.querySelector('[data-notification-poll]');
+    if (notificationControl) {
+        var notificationUrl = notificationControl.getAttribute('data-notification-url');
+        var notificationTarget = notificationControl.getAttribute('data-notification-target');
+        var notificationStatus = document.querySelector('[data-notification-status]');
+        var notificationToasts = document.querySelector('[data-notification-toasts]');
+        var lastNotificationId = Number(notificationControl.getAttribute('data-last-notification-id') || 0);
+        var pollingNotifications = false;
+
+        function updateNotificationCount(count) {
+            document.querySelectorAll('[data-notification-count]').forEach(function (badge) {
+                badge.textContent = String(count);
+                badge.hidden = count === 0;
+            });
+
+            notificationControl.setAttribute('aria-label', count + ' unread notifications');
+        }
+
+        function appendNotification(notification) {
+            var toast = document.createElement('div');
+            var title = document.createElement('strong');
+            var link = document.createElement('a');
+            var close = document.createElement('button');
+
+            toast.className = 'toast toast-info notification-toast';
+            title.textContent = notification.title || 'New notification';
+            link.href = notificationTarget;
+            link.appendChild(title);
+            link.appendChild(document.createElement('br'));
+            link.appendChild(document.createTextNode(notification.body || ''));
+            close.type = 'button';
+            close.className = 'toast-close';
+            close.setAttribute('aria-label', 'Dismiss notification');
+            close.textContent = '×';
+            close.addEventListener('click', function () {
+                toast.remove();
+            });
+            toast.appendChild(link);
+            toast.appendChild(close);
+            notificationToasts.appendChild(toast);
+            window.setTimeout(function () {
+                toast.remove();
+            }, 10000);
+
+            if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+                var browserNotification = new Notification(notification.title || 'New notification', {
+                    body: notification.body || ''
+                });
+
+                browserNotification.onclick = function () {
+                    window.focus();
+                    window.location.href = notificationTarget;
+                };
+            }
+        }
+
+        function pollNotifications() {
+            if (pollingNotifications) {
+                return;
+            }
+
+            pollingNotifications = true;
+            fetch(notificationUrl + '?after_id=' + lastNotificationId, {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+                cache: 'no-store'
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Notification refresh failed with status ' + response.status);
+                    }
+
+                    return response.json();
+                })
+                .then(function (payload) {
+                    if (!payload || !Array.isArray(payload.notifications)) {
+                        throw new Error('Notification response was invalid.');
+                    }
+
+                    payload.notifications.forEach(function (notification) {
+                        lastNotificationId = Math.max(lastNotificationId, Number(notification.id || 0));
+                        appendNotification(notification);
+                    });
+
+                    notificationControl.setAttribute('data-last-notification-id', String(lastNotificationId));
+                    updateNotificationCount(Number(payload.notification_count || 0));
+                    notificationStatus.textContent = '';
+                })
+                .catch(function () {
+                    notificationStatus.textContent = 'Notifications are temporarily unavailable. Retrying.';
+                })
+                .then(function () {
+                    pollingNotifications = false;
+                });
+        }
+
+        pollNotifications();
+        window.setInterval(pollNotifications, 3000);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                pollNotifications();
+            }
+        });
+    }
+
     document.querySelectorAll('[data-toggle-password]').forEach(function (button) {
         button.addEventListener('click', function () {
             var target = document.getElementById(button.getAttribute('data-toggle-password'));

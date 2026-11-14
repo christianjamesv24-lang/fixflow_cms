@@ -72,6 +72,7 @@ class AuthController extends Controller
         $data = [
             'name' => $this->input('name'),
             'email' => strtolower($this->input('email')),
+            'role' => request()->input('role', 'customer'),
             'phone' => $this->input('phone'),
             'address' => $this->input('address'),
             'password' => $this->input('password'),
@@ -90,6 +91,10 @@ class AuthController extends Controller
             $errors['email'] = 'That email is already registered. Try signing in.';
         }
 
+        if (! in_array($data['role'], ['customer', 'technician'], true)) {
+            $errors['role'] = 'Choose a valid account type.';
+        }
+
         if (mb_strlen($data['password']) < 8) {
             $errors['password'] = 'Use at least 8 characters for your password.';
         } elseif ($data['password'] !== $data['password_confirmation']) {
@@ -102,16 +107,17 @@ class AuthController extends Controller
 
         $colors = ['#2563eb', '#7c3aed', '#db2777', '#059669', '#ea580c', '#0891b2'];
         $userId = db_insert(
-            'INSERT INTO users (name, email, password_hash, phone, address, role, status, avatar_color, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+            'INSERT INTO users (name, email, password_hash, phone, address, role, status, avatar_color, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $data['name'],
                 $data['email'],
                 password_hash($data['password'], PASSWORD_DEFAULT),
                 $data['phone'] ?: null,
                 $data['address'] ?: null,
-                'customer',
+                $data['role'],
                 'active',
                 $colors[array_rand($colors)],
+                now(),
             ]
         );
 
@@ -119,6 +125,12 @@ class AuthController extends Controller
         Auth::login($user);
         request()->session()->regenerate();
         log_activity('login', 'Signed in to the portal');
+
+        if ($data['role'] === 'technician') {
+            $this->flash('success', 'Your technician account is registered. Submit your subscription payment for admin review; your account and subscription will be approved together.');
+
+            return redirect('/technician/subscription');
+        }
 
         $this->flash('success', 'Your FixitNow account is ready. Submit your first service request anytime.');
 

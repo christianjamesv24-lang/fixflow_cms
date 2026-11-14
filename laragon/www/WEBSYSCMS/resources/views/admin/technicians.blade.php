@@ -8,9 +8,6 @@
         <h1>Technicians</h1>
         <p><?= count($technicians) ?> technician<?= count($technicians) === 1 ? '' : 's' ?> in this view.</p>
     </div>
-    <div class="page-head-actions">
-        <a class="btn btn-primary" href="<?= e(url('/admin/technicians/create')) ?>"><?= icon('plus') ?> Add technician</a>
-    </div>
 </div>
 
 <form class="filter-bar" method="get" action="<?= e(url('/admin/technicians')) ?>">
@@ -43,6 +40,7 @@
                     <th>Completed</th>
                     <th>Rating</th>
                     <th>Status</th>
+                    <th>Account approval</th>
                     <th></th>
                 </tr>
             </thead>
@@ -69,6 +67,7 @@
                             <?php endif; ?>
                         </td>
                         <td><?= status_badge($technician['status']) ?></td>
+                        <td><?= status_badge($technician['technician_approved_at'] ? 'approved' : 'pending') ?></td>
                         <td class="text-right">
                             <div class="inline-actions">
                                 <a class="icon-btn" href="<?= e(url('/admin/requests?technician=' . $technician['id'])) ?>" title="View jobs"><?= icon('clipboard') ?></a>
@@ -91,8 +90,7 @@
         <div class="empty-state">
             <?= icon('users') ?>
             <h3>No technicians found</h3>
-            <p><?= $hasFilters ? 'Try a different search or status filter.' : 'Add your first technician to start assigning jobs.' ?></p>
-            <a class="btn btn-primary btn-sm" href="<?= e(url('/admin/technicians/create')) ?>"><?= icon('plus') ?> Add technician</a>
+            <p><?= $hasFilters ? 'Try a different search or status filter.' : 'Technician registrations will appear here.' ?></p>
         </div>
     </div>
 <?php endif; ?>
