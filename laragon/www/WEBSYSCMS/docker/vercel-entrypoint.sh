@@ -30,6 +30,10 @@ mkdir -p \
     "$storage_path/logs"
 chown -R www-data:www-data "$storage_path"
 
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    php artisan migrate --force
+fi
+
 port="${PORT:-80}"
 sed -i "s/^Listen 80$/Listen ${port}/" /etc/apache2/ports.conf
 sed -i "s/<VirtualHost \\*:80>/<VirtualHost *:${port}>/" /etc/apache2/sites-enabled/000-default.conf
