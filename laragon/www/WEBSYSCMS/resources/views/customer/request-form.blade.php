@@ -3,6 +3,9 @@
 @section('content')
 <?php
 $selectedCategory = old('category_id', '');
+$locationLatitude = old('latitude', '');
+$locationLongitude = old('longitude', '');
+$locationAccuracy = old('location_accuracy', '');
 if ($selectedCategory === '' && $selected !== '') {
     foreach ($categories as $category) {
         if ($category['slug'] === $selected) {
@@ -12,6 +15,7 @@ if ($selectedCategory === '' && $selected !== '') {
     }
 }
 ?>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <div class="page-head">
     <div>
         <p class="eyebrow">New request</p>
@@ -23,7 +27,7 @@ if ($selectedCategory === '' && $selected !== '') {
     </div>
 </div>
 
-<form method="post" action="<?= e(url('/customer/requests')) ?>" class="form-card form">
+<form method="post" action="<?= e(url('/customer/requests')) ?>" class="form-card form" data-location-form data-geocode-url="<?= e(config('services.location.reverse_geocode_url')) ?>">
     <?= csrf_field() ?>
 
     <div class="section-title" style="padding:0 0 14px;border-bottom:1px solid var(--line);margin-bottom:4px">
@@ -115,10 +119,40 @@ if ($selectedCategory === '' && $selected !== '') {
         </div>
     </div>
 
+    <?php if (! empty($addresses)): ?>
+        <div class="field">
+            <label for="saved_address">Use a saved address</label>
+            <select id="saved_address" data-saved-address>
+                <option value="">Enter a new address</option>
+                <?php foreach ($addresses as $savedAddress): ?>
+                    <option
+                        value="<?= (int) $savedAddress['id'] ?>"
+                        data-address="<?= e($savedAddress['address']) ?>"
+                        data-latitude="<?= e($savedAddress['latitude'] ?? '') ?>"
+                        data-longitude="<?= e($savedAddress['longitude'] ?? '') ?>"
+                        data-accuracy="<?= e($savedAddress['accuracy'] ?? '') ?>"
+                    ><?= e($savedAddress['label']) ?> — <?= e($savedAddress['address']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    <?php endif; ?>
+
     <div class="field">
         <label for="address">Service address *</label>
-        <input type="text" id="address" name="address" value="<?= e(old('address', $user['address'] ?? '')) ?>" class="<?= isset($errors['address']) ? 'is-invalid' : '' ?>" placeholder="House / unit, street, barangay, city" required>
+        <input type="text" id="address" name="address" value="<?= e(old('address', $user['address'] ?? '')) ?>" class="<?= isset($errors['address']) ? 'is-invalid' : '' ?>" placeholder="House / unit, street, barangay, city" required data-location-address>
         <?php if (isset($errors['address'])): ?><span class="field-error"><?= e($errors['address']) ?></span><?php endif; ?>
+    </div>
+
+    <div class="field">
+        <div class="inline-actions">
+            <button type="button" class="btn btn-soft btn-sm" data-use-location>Use my location</button>
+            <span class="field-hint" data-location-status aria-live="polite">Location is only added if you choose to share it.</span>
+        </div>
+        <input type="hidden" name="latitude" value="<?= e($locationLatitude) ?>" data-location-latitude>
+        <input type="hidden" name="longitude" value="<?= e($locationLongitude) ?>" data-location-longitude>
+        <input type="hidden" name="location_accuracy" value="<?= e($locationAccuracy) ?>" data-location-accuracy>
+        <div class="location-map" data-location-picker data-tile-url="<?= e(config('services.location.tile_url')) ?>" data-latitude="<?= e($locationLatitude) ?>" data-longitude="<?= e($locationLongitude) ?>" aria-label="Map showing the selected service location"></div>
+        <small class="field-hint">The map pin is optional. GPS accuracy depends on your device and surroundings. Map data © OpenStreetMap contributors.</small>
     </div>
 
     <div class="note-box">
@@ -132,4 +166,5 @@ if ($selectedCategory === '' && $selected !== '') {
     </div>
 </form>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 @endsection

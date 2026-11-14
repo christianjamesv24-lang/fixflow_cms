@@ -6,6 +6,9 @@ $roleLabels = ['admin' => 'Administrator', 'technician' => 'Technician', 'custom
 $role = $user['role'];
 $roleLabel = $roleLabels[$role] ?? ucfirst($role);
 ?>
+<?php if ($role === 'customer'): ?>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php endif; ?>
 <div class="page-head">
     <div>
         <p class="eyebrow">Account</p>
@@ -143,6 +146,62 @@ $roleLabel = $roleLabels[$role] ?? ucfirst($role);
             </form>
         </section>
 
+        <?php if ($role === 'customer'): ?>
+            <section class="panel" id="saved-addresses">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">Saved addresses</h2>
+                        <p class="panel-sub">Save locations for faster service requests. You can remove them at any time.</p>
+                    </div>
+                </div>
+                <div class="panel-body stack">
+                    <?php if ($addresses): ?>
+                        <?php foreach ($addresses as $savedAddress): ?>
+                            <div class="flex-between saved-address-row">
+                                <div>
+                                    <strong><?= e($savedAddress['label']) ?></strong>
+                                    <p class="text-sm text-muted" style="margin:4px 0 0"><?= e($savedAddress['address']) ?></p>
+                                </div>
+                                <form method="post" action="<?= e(url('/profile/addresses/'.$savedAddress['id'].'/delete')) ?>" data-confirm="Delete this saved address?">
+                                    <?= csrf_field() ?>
+                                    <button class="btn btn-danger-soft btn-sm" type="submit">Delete</button>
+                                </form>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="text-sm text-muted" style="margin:0">You have not saved any addresses yet.</p>
+                    <?php endif; ?>
+
+                    <form method="post" action="<?= e(url('/profile/addresses')) ?>" class="form saved-address-form" data-location-form data-geocode-url="<?= e(config('services.location.reverse_geocode_url')) ?>">
+                        <?= csrf_field() ?>
+                        <div class="section-title" style="padding-top:12px;border-top:1px solid var(--line)">
+                            <h3>Add an address</h3>
+                        </div>
+                        <div class="form-row">
+                            <div class="field">
+                                <label for="saved_label">Label *</label>
+                                <input id="saved_label" name="label" type="text" maxlength="80" placeholder="Home, work..." required>
+                            </div>
+                            <div class="field">
+                                <label for="saved_address">Address *</label>
+                                <input id="saved_address" name="address" type="text" maxlength="255" placeholder="House / unit, street, barangay, city" required data-location-address>
+                            </div>
+                        </div>
+                        <div class="inline-actions">
+                            <button type="button" class="btn btn-soft btn-sm" data-use-location>Use my location</button>
+                            <span class="field-hint" data-location-status aria-live="polite">Optional; location is used only when you click.</span>
+                        </div>
+                        <input type="hidden" name="latitude" data-location-latitude>
+                        <input type="hidden" name="longitude" data-location-longitude>
+                        <input type="hidden" name="accuracy" data-location-accuracy>
+                        <div class="location-map" data-location-picker data-tile-url="<?= e(config('services.location.tile_url')) ?>" aria-label="Map showing the saved address location"></div>
+                        <small class="field-hint">Tap the map to drop a pin if the GPS location needs adjusting. Map data © OpenStreetMap contributors.</small>
+                        <button class="btn btn-primary btn-sm" type="submit">Save address</button>
+                    </form>
+                </div>
+            </section>
+        <?php endif; ?>
+
         <section class="panel">
             <div class="panel-head">
                 <div>
@@ -188,4 +247,7 @@ $roleLabel = $roleLabels[$role] ?? ucfirst($role);
     </div>
 </div>
 
+<?php if ($role === 'customer'): ?>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<?php endif; ?>
 @endsection

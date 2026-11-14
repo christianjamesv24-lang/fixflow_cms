@@ -11,7 +11,11 @@ $statusStep = [
     'cancelled' => 'Request cancelled',
 ];
 $canCancel = in_array($request['status'], ['pending', 'assigned', 'accepted'], true);
+$hasActiveAssignment = in_array($request['status'], ['assigned', 'accepted', 'in_progress'], true) && ! empty($request['technician_id']);
 ?>
+<?php if ($hasActiveAssignment): ?>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php endif; ?>
 <div class="page-head">
     <div>
         <nav class="breadcrumb" style="margin-bottom:8px">
@@ -75,6 +79,29 @@ $canCancel = in_array($request['status'], ['pending', 'assigned', 'accepted'], t
                 <p class="detail-desc"><?= e($request['description']) ?></p>
             </div>
         </section>
+
+        <?php if ($hasActiveAssignment): ?>
+            <section class="panel" data-live-location
+                     data-user-role="customer"
+                     data-endpoint="<?= e(url('/service-requests/'.$request['id'].'/location')) ?>"
+                     data-tile-url="<?= e(config('services.location.tile_url')) ?>">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">Visit location</h2>
+                        <p class="panel-sub">The technician's location appears only while they choose to share it.</p>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="location-map" data-tracking-map aria-label="Map showing the service location and technician"></div>
+                    <p class="field-hint" data-live-location-status aria-live="polite">Loading location…</p>
+                    <div class="map-legend">
+                        <span><i class="map-dot customer"></i> Service address</span>
+                        <span><i class="map-dot technician"></i> Technician (opt-in)</span>
+                    </div>
+                    <small class="field-hint">Map data © OpenStreetMap contributors.</small>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <section class="panel">
             <div class="panel-head">
@@ -279,10 +306,16 @@ $canCancel = in_array($request['status'], ['pending', 'assigned', 'accepted'], t
                     <?php if ($request['technician_phone']): ?>
                         <a class="btn btn-soft btn-sm btn-block mt-2" href="tel:<?= e($request['technician_phone']) ?>"><?= icon('phone') ?> Call technician</a>
                     <?php endif; ?>
+                    <?php if ($hasActiveAssignment): ?>
+                        <a class="btn btn-primary btn-sm btn-block mt-2" href="<?= e(url('/service-requests/'.$request['id'].'/chat')) ?>"><?= icon('message') ?> Chat about this request</a>
+                    <?php endif; ?>
                 </div>
             </section>
         <?php endif; ?>
     </div>
 </div>
 
+<?php if ($hasActiveAssignment): ?>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<?php endif; ?>
 @endsection

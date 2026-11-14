@@ -9,8 +9,14 @@ class ProfileController extends Controller
         $user = $this->authUser();
 
         $stats = [];
+        $addresses = [];
 
         if ($user->role === 'customer') {
+            $addresses = db_all(
+                'SELECT id, label, address, latitude, longitude, accuracy
+                 FROM customer_addresses WHERE customer_id = ? ORDER BY id DESC',
+                [$user->id]
+            );
             $stats = [
                 'total' => (int) db_value('SELECT COUNT(*) FROM service_requests WHERE customer_id = ?', [$user->id]),
                 'active' => (int) db_value("SELECT COUNT(*) FROM service_requests WHERE customer_id = ? AND status IN ('pending','assigned','accepted','in_progress')", [$user->id]),
@@ -28,6 +34,7 @@ class ProfileController extends Controller
             'title' => 'My profile',
             'user' => $user,
             'stats' => $stats,
+            'addresses' => $addresses,
         ]);
     }
 

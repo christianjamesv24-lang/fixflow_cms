@@ -199,6 +199,7 @@ class TechnicianController extends Controller
             "UPDATE service_requests SET technician_id = NULL, status = 'pending', assigned_at = NULL, updated_at = NOW() WHERE id = ?",
             [$request['id']]
         );
+        db_exec('DELETE FROM technician_live_locations WHERE request_id = ?', [$request['id']]);
         db_exec(
             "UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE request_id = ? AND status IN ('scheduled', 'confirmed')",
             [$request['id']]
@@ -321,6 +322,7 @@ class TechnicianController extends Controller
                 "UPDATE service_requests SET status = 'completed', final_cost = ?, completed_at = NOW(), updated_at = NOW() WHERE id = ?",
                 [(float) $data['final_cost'], $request['id']]
             );
+            db_exec('DELETE FROM technician_live_locations WHERE request_id = ?', [$request['id']]);
 
             db_exec(
                 "UPDATE appointments SET status = 'completed', updated_at = NOW() WHERE request_id = ? AND status IN ('scheduled', 'confirmed')",

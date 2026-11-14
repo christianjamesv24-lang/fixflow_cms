@@ -6,11 +6,13 @@ use App\Http\Controllers\AdminPeopleController;
 use App\Http\Controllers\AdminSubscriptionController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\CustomerAddressController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\TechnicianLocationController;
 use App\Http\Controllers\TechnicianSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +53,17 @@ Route::middleware('role:customer')->group(function () {
     Route::get('/customer/requests/{id}', [CustomerController::class, 'show'])->whereNumber('id');
     Route::post('/customer/requests/{id}/cancel', [CustomerController::class, 'cancel'])->whereNumber('id');
     Route::post('/customer/requests/{id}/feedback', [CustomerController::class, 'feedback'])->whereNumber('id');
+    Route::post('/profile/addresses', [CustomerAddressController::class, 'store']);
+    Route::post('/profile/addresses/{id}/delete', [CustomerAddressController::class, 'destroy'])->whereNumber('id');
+});
+
+Route::middleware('role:customer,technician')->group(function () {
+    Route::get('/service-requests/{id}/chat', [ChatController::class, 'requestChat'])->whereNumber('id');
+    Route::get('/service-requests/{id}/chat/messages', [ChatController::class, 'requestMessages'])->whereNumber('id');
+    Route::post('/service-requests/{id}/chat/messages', [ChatController::class, 'sendRequestMessage'])->middleware('throttle:30,1')->whereNumber('id');
+    Route::get('/service-requests/{id}/location', [TechnicianLocationController::class, 'show'])->whereNumber('id');
+    Route::post('/service-requests/{id}/location', [TechnicianLocationController::class, 'update'])->middleware('throttle:30,1')->whereNumber('id');
+    Route::delete('/service-requests/{id}/location', [TechnicianLocationController::class, 'destroy'])->whereNumber('id');
 });
 
 Route::middleware('role:technician')->group(function () {

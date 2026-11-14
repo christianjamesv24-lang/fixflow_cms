@@ -10,7 +10,11 @@ $statusStep = [
     'completed' => 'Service completed',
     'cancelled' => 'Request cancelled',
 ];
+$hasActiveAssignment = in_array($request['status'], ['assigned', 'accepted', 'in_progress'], true);
 ?>
+<?php if ($hasActiveAssignment): ?>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<?php endif; ?>
 <div class="page-head">
     <div>
         <nav class="breadcrumb" style="margin-bottom:8px">
@@ -72,6 +76,33 @@ $statusStep = [
                 <p class="detail-desc"><?= e($request['description']) ?></p>
             </div>
         </section>
+
+        <?php if ($hasActiveAssignment): ?>
+            <section class="panel" data-live-location
+                     data-user-role="technician"
+                     data-endpoint="<?= e(url('/service-requests/'.$request['id'].'/location')) ?>"
+                     data-tile-url="<?= e(config('services.location.tile_url')) ?>">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">Location sharing</h2>
+                        <p class="panel-sub">Only this request's customer can see your live location.</p>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="location-map" data-tracking-map aria-label="Map showing the customer service location and your shared location"></div>
+                    <div class="inline-actions mt-2">
+                        <button class="btn btn-primary btn-sm" type="button" data-start-location>Start sharing</button>
+                        <button class="btn btn-danger-soft btn-sm" type="button" data-stop-location hidden>Stop sharing</button>
+                    </div>
+                    <p class="field-hint" data-live-location-status aria-live="polite">Your location is not being shared.</p>
+                    <div class="map-legend">
+                        <span><i class="map-dot customer"></i> Customer address</span>
+                        <span><i class="map-dot technician"></i> Your location</span>
+                    </div>
+                    <small class="field-hint">Sharing is optional and stops when you click Stop. GPS accuracy varies by device. Map data © OpenStreetMap contributors.</small>
+                </div>
+            </section>
+        <?php endif; ?>
 
         <?php if ($request['status'] === 'in_progress'): ?>
             <section class="panel">
@@ -258,6 +289,9 @@ $statusStep = [
                 <?php elseif ($request['status'] === 'in_progress'): ?>
                     <p class="text-sm text-muted" style="margin:0">Fill out the completion report to close this job.</p>
                 <?php endif; ?>
+                <?php if ($hasActiveAssignment): ?>
+                    <a class="btn btn-soft btn-sm btn-block mt-2" href="<?= e(url('/service-requests/'.$request['id'].'/chat')) ?>"><?= icon('message') ?> Chat with customer</a>
+                <?php endif; ?>
             </div>
         </section>
 
@@ -311,4 +345,7 @@ $statusStep = [
     </div>
 </div>
 
+<?php if ($hasActiveAssignment): ?>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<?php endif; ?>
 @endsection

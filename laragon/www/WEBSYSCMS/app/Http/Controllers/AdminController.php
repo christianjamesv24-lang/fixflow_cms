@@ -226,6 +226,7 @@ class AdminController extends Controller
             return redirect('/admin/requests/'.$request['id']);
         }
 
+        db_exec('DELETE FROM technician_live_locations WHERE request_id = ?', [$request['id']]);
         db_exec(
             "UPDATE service_requests SET technician_id = ?, status = 'assigned', assigned_at = NOW(), updated_at = NOW() WHERE id = ?",
             [$technicianId, $request['id']]
@@ -291,6 +292,10 @@ class AdminController extends Controller
 
         $values[] = $request['id'];
         db_exec('UPDATE service_requests SET '.implode(', ', $fields).' WHERE id = ?', $values);
+
+        if (in_array($status, ['pending', 'completed', 'cancelled'], true)) {
+            db_exec('DELETE FROM technician_live_locations WHERE request_id = ?', [$request['id']]);
+        }
 
         db_insert(
             'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',

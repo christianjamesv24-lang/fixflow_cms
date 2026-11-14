@@ -46,4 +46,9 @@ return [
         'vercel_environment' => env('VERCEL_ENV'),
     ],
 
+    'location' => [
+        'tile_url' => env('LOCATION_MAP_TILES_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'reverse_geocode_url' => env('LOCATION_REVERSE_GEOCODE_URL', 'https://nominatim.openstreetmap.org/reverse'),
+    ],
+
 ];

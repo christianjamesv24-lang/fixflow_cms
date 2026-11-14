@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ChatController extends Controller
 {
@@ -180,6 +182,132 @@ class ChatController extends Controller
         db_exec('UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND type = ?', [$user->id, 'info']);
 
         return response()->json(['ok' => true]);
+    }
+
+    public function requestChat(int $id)
+    {
+        $user = $this->authUser();
+        $serviceRequest = $this->findRequestConversation($id, $user);
+        $peerId = (int) $serviceRequest['customer_id'] === (int) $user->id
+            ? (int) $serviceRequest['technician_id']
+            : (int) $serviceRequest['customer_id'];
+        $peer = db_one('SELECT id, name, role, avatar_color FROM users WHERE id = ?', [$peerId]);
+        $messages = db_all(
+            'SELECT m.*, s.name AS sender_name
+             FROM request_chat_messages m
+             JOIN users s ON s.id = m.sender_id
+             WHERE m.request_id = ? ORDER BY m.id ASC LIMIT 100',
+            [$id]
+        );
+
+        db_exec(
+            'UPDATE request_chat_messages SET is_read = 1 WHERE request_id = ? AND receiver_id = ?',
+            [$id, $user->id]
+        );
+
+        return view('chat.request', [
+            'title' => 'Chat · '.$serviceRequest['ticket_no'],
+            'user' => $user,
+            'peer' => $peer,
+            'serviceRequest' => $serviceRequest,
+            'messages' => $messages,
+        ]);
+    }
+
+    public function requestMessages(Request $request, int $id): JsonResponse
+    {
+        $user = $this->authUser();
+        $this->findRequestConversation($id, $user);
+        $lastId = max(0, (int) $request->query('last_id', 0));
+        $messages = db_all(
+            'SELECT m.*, s.name AS sender_name
+             FROM request_chat_messages m
+             JOIN users s ON s.id = m.sender_id
+             WHERE m.request_id = ? AND m.id > ?
+             ORDER BY m.id ASC LIMIT 100',
+            [$id, $lastId]
+        );
+
+        db_exec(
+            'UPDATE request_chat_messages SET is_read = 1 WHERE request_id = ? AND receiver_id = ? AND id > ?',
+            [$id, $user->id, $lastId]
+        );
+
+        return response()->json(['messages' => $messages])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    public function sendRequestMessage(Request $request, int $id): JsonResponse
+    {
+        $user = $this->authUser();
+        $data = $request->validate([
+            'message_type' => ['required', 'in:text,location'],
+            'message' => ['nullable', 'string', 'max:2000'],
+            'latitude' => ['required_if:message_type,location', 'nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['required_if:message_type,location', 'nullable', 'numeric', 'between:-180,180'],
+            'accuracy' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+        ]);
+        $messageType = $data['message_type'];
+        $message = trim((string) ($data['message'] ?? ''));
+
+        if ($messageType === 'text' && $message === '') {
+            return response()->json(['error' => 'Message cannot be empty.'], 422);
+        }
+
+        $messageId = DB::transaction(function () use ($id, $user, $data, $messageType, $message): int {
+            $serviceRequest = $this->findRequestConversation($id, $user, true);
+            $receiverId = (int) $serviceRequest['customer_id'] === (int) $user->id
+                ? (int) $serviceRequest['technician_id']
+                : (int) $serviceRequest['customer_id'];
+
+            return (int) DB::table('request_chat_messages')->insertGetId([
+                'request_id' => $id,
+                'sender_id' => $user->id,
+                'receiver_id' => $receiverId,
+                'message_type' => $messageType,
+                'message' => $messageType === 'location'
+                    ? ($message !== '' ? $message : 'Shared a location')
+                    : $message,
+                'latitude' => $messageType === 'location' ? $data['latitude'] : null,
+                'longitude' => $messageType === 'location' ? $data['longitude'] : null,
+                'accuracy' => $messageType === 'location' ? ($data['accuracy'] ?? null) : null,
+                'is_read' => false,
+            ]);
+        });
+
+        $record = db_one(
+            'SELECT m.*, s.name AS sender_name
+             FROM request_chat_messages m JOIN users s ON s.id = m.sender_id
+             WHERE m.id = ?',
+            [$messageId]
+        );
+
+        return response()->json(['message' => $record])
+            ->header('Cache-Control', 'private, no-store');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function findRequestConversation(int $id, User $user, bool $forUpdate = false): array
+    {
+        $query = DB::table('service_requests')->where('id', $id);
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+        $serviceRequest = $query->first();
+
+        abort_if(
+            ! $serviceRequest
+                || ! in_array($serviceRequest->status, ['assigned', 'accepted', 'in_progress'], true)
+                || ! (
+                    ($user->role === 'customer' && (int) $serviceRequest->customer_id === (int) $user->id)
+                    || ($user->role === 'technician' && (int) $serviceRequest->technician_id === (int) $user->id)
+                ),
+            404
+        );
+
+        return (array) $serviceRequest;
     }
 
     protected function getConversation(int $userId, int $peerId): ?array

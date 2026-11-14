@@ -118,12 +118,18 @@ class CustomerController extends Controller
     {
         $user = $this->authUser();
         $categories = db_all("SELECT * FROM service_categories WHERE status = 'active' ORDER BY name");
+        $addresses = db_all(
+            'SELECT id, label, address, latitude, longitude, accuracy
+             FROM customer_addresses WHERE customer_id = ? ORDER BY id DESC',
+            [$user->id]
+        );
         $selected = request()->query('category', '');
 
         return view('customer.request-form', [
             'title' => 'New service request',
             'user' => $user,
             'categories' => $categories,
+            'addresses' => $addresses,
             'selected' => $selected,
         ]);
     }
@@ -144,6 +150,9 @@ class CustomerController extends Controller
             'preferred_date' => $this->input('preferred_date'),
             'preferred_time' => $this->input('preferred_time'),
             'address' => $this->input('address'),
+            'latitude' => $this->input('latitude'),
+            'longitude' => $this->input('longitude'),
+            'location_accuracy' => $this->input('location_accuracy'),
         ];
 
         $errors = [];
@@ -170,6 +179,27 @@ class CustomerController extends Controller
             $errors['address'] = 'We need a service address.';
         }
 
+        if (($data['latitude'] === '') !== ($data['longitude'] === '')) {
+            $errors['latitude'] = 'Use a complete map location or leave both coordinates blank.';
+        } elseif ($data['latitude'] !== '' && (
+            ! is_numeric($data['latitude'])
+            || ! is_numeric($data['longitude'])
+            || (float) $data['latitude'] < -90
+            || (float) $data['latitude'] > 90
+            || (float) $data['longitude'] < -180
+            || (float) $data['longitude'] > 180
+        )) {
+            $errors['latitude'] = 'Choose a valid map location.';
+        }
+
+        if ($data['location_accuracy'] !== '' && (
+            ! is_numeric($data['location_accuracy'])
+            || (float) $data['location_accuracy'] < 0
+            || (float) $data['location_accuracy'] > 100000
+        )) {
+            $errors['location_accuracy'] = 'The reported location accuracy is invalid.';
+        }
+
         if (! in_array($data['priority'], ['low', 'medium', 'high', 'urgent'], true)) {
             $data['priority'] = 'medium';
         }
@@ -185,8 +215,8 @@ class CustomerController extends Controller
         $ticket = generate_ticket_no();
         $requestId = db_insert(
             'INSERT INTO service_requests
-                (ticket_no, customer_id, category_id, service_type, title, description, brand, model, serial_no, address, priority, preferred_date, preferred_time, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+                (ticket_no, customer_id, category_id, service_type, title, description, brand, model, serial_no, address, latitude, longitude, location_accuracy, priority, preferred_date, preferred_time, status, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
             [
                 $ticket,
                 $user->id,
@@ -198,6 +228,9 @@ class CustomerController extends Controller
                 $data['model'] ?: null,
                 $data['serial_no'] ?: null,
                 $data['address'],
+                $data['latitude'] !== '' ? (float) $data['latitude'] : null,
+                $data['longitude'] !== '' ? (float) $data['longitude'] : null,
+                $data['location_accuracy'] !== '' ? (float) $data['location_accuracy'] : null,
                 $data['priority'],
                 $data['preferred_date'] ?: null,
                 $data['preferred_time'] ?: null,
@@ -261,6 +294,7 @@ class CustomerController extends Controller
         }
 
         db_exec("UPDATE service_requests SET status = 'cancelled', updated_at = NOW() WHERE id = ?", [$request['id']]);
+        db_exec('DELETE FROM technician_live_locations WHERE request_id = ?', [$request['id']]);
         db_exec(
             "UPDATE appointments SET status = 'cancelled', updated_at = NOW() WHERE request_id = ? AND status IN ('scheduled', 'confirmed')",
             [$request['id']]

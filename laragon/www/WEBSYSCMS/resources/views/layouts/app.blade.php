@@ -86,6 +86,7 @@ $currentPath = '/' . trim(request()->path(), '/');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
     <title><?= e($pageTitle) ?> · <?= e($siteName) ?></title>
     <link rel="icon" type="image/svg+xml" href="<?= e(asset('assets/img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
