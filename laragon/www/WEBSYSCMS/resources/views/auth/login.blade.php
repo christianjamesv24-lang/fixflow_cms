@@ -24,6 +24,7 @@
         <?php if (isset($errors['password'])): ?><span class="field-error"><?= e($errors['password']) ?></span><?php endif; ?>
     </div>
 
+    <p class="auth-switch"><a href="<?= e(route('password.request')) ?>">Forgot password?</a></p>
     <button type="submit" class="btn btn-primary btn-block">Sign in</button>
 </form>
 

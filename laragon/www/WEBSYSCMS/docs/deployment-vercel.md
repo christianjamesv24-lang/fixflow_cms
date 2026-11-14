@@ -13,7 +13,7 @@ This Laravel application can run on Vercel's Container Runtime, which is current
    ```
 
    Add the result as `MYSQL_ATTR_SSL_CA_BASE64` in Vercel. The container writes the certificate to temporary storage and configures Laravel's MySQL TLS connection. Keep database credentials only in Vercel's environment settings, not in Git or chat.
-4. **Set application environment variables.** Configure a unique `APP_KEY`, the deployment's `APP_URL`, `APP_ENV=production`, `APP_DEBUG=false`, and `SUBSCRIPTION_DEMO_MODE=false` for Production. Generate a key with `php artisan key:generate --show` and add it only in Vercel's environment settings.
+4. **Set application environment variables.** Configure a unique `APP_KEY`, the deployment's `APP_URL`, `APP_ENV=production`, `APP_DEBUG=false`, and `SUBSCRIPTION_DEMO_MODE=false` for Production. Generate a key with `php artisan key:generate --show` and add it only in Vercel's environment settings. To deliver password recovery emails, configure a production mail provider with `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SCHEME`, and `MAIL_FROM_ADDRESS`; do not use the log mailer in production.
 5. **Run database migrations** against the provisioned database before opening the deployment:
 
    ```powershell

@@ -27,6 +27,10 @@ Route::get('/p/{slug}', [HomeController::class, 'page']);
 
 Route::get('/login', [AuthController::class, 'showLogin']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])->name('password.request');
+Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:5,1');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])->name('password.reset');
+Route::post('/reset-password/{token}', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 Route::get('/register', [AuthController::class, 'showRegister']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout']);
