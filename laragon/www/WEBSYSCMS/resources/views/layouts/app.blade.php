@@ -5,55 +5,40 @@ $roleLabels = ['admin' => 'Administrator', 'technician' => 'Technician', 'custom
 $role = $currentUser['role'] ?? 'customer';
 $roleLabel = $roleLabels[$role] ?? ucfirst($role);
 
-$navGroups = [];
+$primaryNav = [];
+$moreNav = [];
 if ($role === 'admin') {
-    $navGroups = [
-        'Service desk' => [
-            ['label' => 'Overview', 'path' => '/admin', 'icon' => 'grid', 'exact' => true],
-            ['label' => 'Service requests', 'path' => '/admin/requests', 'icon' => 'clipboard'],
-            ['label' => 'Appointments', 'path' => '/admin/appointments', 'icon' => 'calendar'],
-            ['label' => 'Reports', 'path' => '/admin/reports', 'icon' => 'chart'],
-        ],
-        'People' => [
-            ['label' => 'Technicians', 'path' => '/admin/technicians', 'icon' => 'users'],
-            ['label' => 'Customers', 'path' => '/admin/customers', 'icon' => 'user'],
-            ['label' => 'Feedback', 'path' => '/admin/feedback', 'icon' => 'star'],
-        ],
-        'Content' => [
-            ['label' => 'Services', 'path' => '/admin/services', 'icon' => 'wrench'],
-            ['label' => 'CMS pages', 'path' => '/admin/pages', 'icon' => 'file'],
-            ['label' => 'Inbox', 'path' => '/admin/messages', 'icon' => 'message'],
-            ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
-        ],
-        'System' => [
-            ['label' => 'Subscriptions', 'path' => '/admin/subscriptions', 'icon' => 'credit-card'],
-            ['label' => 'Settings', 'path' => '/admin/settings', 'icon' => 'settings'],
-            ['label' => 'Activity log', 'path' => '/admin/activity', 'icon' => 'activity'],
-        ],
+    $primaryNav = [
+        ['label' => 'Dashboard', 'path' => '/admin', 'exact' => true],
+        ['label' => 'Requests', 'path' => '/admin/requests'],
+        ['label' => 'Technicians', 'path' => '/admin/technicians'],
+        ['label' => 'Customers', 'path' => '/admin/customers'],
+        ['label' => 'Messages', 'path' => '/admin/messages'],
+    ];
+    $moreNav = [
+        ['label' => 'Appointments', 'path' => '/admin/appointments'],
+        ['label' => 'Reports', 'path' => '/admin/reports'],
+        ['label' => 'Feedback', 'path' => '/admin/feedback'],
+        ['label' => 'Services', 'path' => '/admin/services'],
+        ['label' => 'CMS pages', 'path' => '/admin/pages'],
+        ['label' => 'Live chat', 'path' => '/chat'],
+        ['label' => 'Subscriptions', 'path' => '/admin/subscriptions'],
+        ['label' => 'Settings', 'path' => '/admin/settings'],
+        ['label' => 'Activity log', 'path' => '/admin/activity'],
     ];
 } elseif ($role === 'technician') {
-    $navGroups = [
-        'My work' => [
-            ['label' => 'Overview', 'path' => '/technician', 'icon' => 'grid', 'exact' => true],
-            ['label' => 'Assigned jobs', 'path' => '/technician/jobs', 'icon' => 'clipboard'],
-            ['label' => 'Schedule', 'path' => '/technician/schedule', 'icon' => 'calendar'],
-            ['label' => 'Live chat', 'path' => '/chat', 'icon' => 'message'],
-        ],
-        'Account' => [
-            ['label' => 'Subscription', 'path' => '/technician/subscription', 'icon' => 'credit-card'],
-            ['label' => 'My profile', 'path' => '/profile', 'icon' => 'user'],
-        ],
+    $primaryNav = [
+        ['label' => 'Dashboard', 'path' => '/technician', 'exact' => true],
+        ['label' => 'Assigned jobs', 'path' => '/technician/jobs'],
+        ['label' => 'Schedule', 'path' => '/technician/schedule'],
+        ['label' => 'Messages', 'path' => '/chat'],
+        ['label' => 'Subscription', 'path' => '/technician/subscription'],
     ];
 } else {
-    $navGroups = [
-        'My service' => [
-            ['label' => 'Overview', 'path' => '/customer', 'icon' => 'grid', 'exact' => true],
-            ['label' => 'My requests', 'path' => '/customer/requests', 'icon' => 'clipboard', 'exclude' => '/customer/requests/new'],
-            ['label' => 'New request', 'path' => '/customer/requests/new', 'icon' => 'plus', 'exact' => true],
-        ],
-        'Account' => [
-            ['label' => 'My profile', 'path' => '/profile', 'icon' => 'user'],
-        ],
+    $primaryNav = [
+        ['label' => 'Dashboard', 'path' => '/customer', 'exact' => true],
+        ['label' => 'My requests', 'path' => '/customer/requests', 'exclude' => '/customer/requests/new'],
+        ['label' => 'Services', 'path' => '/services'],
     ];
 }
 
@@ -80,6 +65,24 @@ if ($notificationPollingEnabled) {
 $pageTitle = $title ?? 'Dashboard';
 
 $currentPath = '/' . trim(request()->path(), '/');
+$isActiveNavItem = static function (array $item) use ($currentPath): bool {
+    $isActive = !empty($item['exact'])
+        ? $currentPath === rtrim($item['path'], '/')
+        : str_starts_with($currentPath, $item['path']);
+
+    if ($isActive && !empty($item['exclude']) && str_starts_with($currentPath, $item['exclude'])) {
+        return false;
+    }
+
+    return $isActive;
+};
+$moreNavIsActive = false;
+foreach ($moreNav as $item) {
+    if ($isActiveNavItem($item)) {
+        $moreNavIsActive = true;
+        break;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -93,109 +96,97 @@ $currentPath = '/' . trim(request()->path(), '/');
     @include('partials.brand-theme')
 </head>
 <body class="app-body">
-<div class="app-shell" data-app-shell>
-    <div class="sidebar-backdrop" data-sidebar-close></div>
-
-    <aside class="app-sidebar" data-sidebar>
-        <a class="brand brand-light sidebar-brand" href="<?= e(url(dashboard_url())) ?>">
+<div class="app-shell dashboard-shell" data-app-shell>
+    <header class="dashboard-topbar">
+        <a class="dashboard-brand" href="<?= e(url(dashboard_url())) ?>">
             @include('partials.brand-mark')
-            <span class="brand-text"><?= e($siteName) ?><small>Service desk</small></span>
+            <span class="brand-text"><?= e($siteName) ?><small>Appliance care</small></span>
         </a>
 
-        <div class="sidebar-role">
-            <span class="role-dot"></span>
-            <?= e($roleLabel) ?> portal
-        </div>
-
-        <nav class="sidebar-nav">
-            <?php foreach ($navGroups as $groupLabel => $items): ?>
-                <div class="sidebar-group">
-                    <p class="sidebar-group-label"><?= e($groupLabel) ?></p>
-                    <?php foreach ($items as $item): ?>
-                        <?php
-                        $isActive = !empty($item['exact'])
-                            ? $currentPath === rtrim($item['path'], '/')
-                            : str_starts_with($currentPath, $item['path']);
-                        if ($isActive && !empty($item['exclude']) && str_starts_with($currentPath, $item['exclude'])) {
-                            $isActive = false;
-                        }
-                        ?>
-                        <a class="sidebar-link <?= $isActive ? 'active' : '' ?>" href="<?= e(url($item['path'])) ?>">
-                            <?= icon($item['icon']) ?>
-                            <span><?= e($item['label']) ?></span>
-                            <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
-                                <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
-                            <?php endif; ?>
-                            <?php if ($item['path'] === '/admin/messages' && $unreadMessages > 0): ?>
-                                <span class="nav-count"><?= $unreadMessages ?></span>
-                            <?php endif; ?>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
+        <nav class="dashboard-nav" aria-label="Main navigation">
+            <?php foreach ($primaryNav as $item): ?>
+                <a class="dashboard-nav-link <?= $isActiveNavItem($item) ? 'active' : '' ?>"
+                   href="<?= e(url($item['path'])) ?>"
+                   <?= $isActiveNavItem($item) ? 'aria-current="page"' : '' ?>>
+                    <?= e($item['label']) ?>
+                    <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
+                        <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
+                    <?php endif; ?>
+                    <?php if ($item['path'] === '/admin/messages' && $unreadMessages > 0): ?>
+                        <span class="nav-count"><?= $unreadMessages ?></span>
+                    <?php endif; ?>
+                </a>
             <?php endforeach; ?>
-        </nav>
-
-        <div class="sidebar-footer">
-            <a class="sidebar-link" href="<?= e(url('/')) ?>" target="_blank" rel="noopener">
-                <?= icon('external') ?><span>View website</span>
-            </a>
-            <a class="sidebar-link" href="<?= e(url('/logout')) ?>">
-                <?= icon('logout') ?><span>Sign out</span>
-            </a>
-        </div>
-    </aside>
-
-    <div class="app-main">
-        <header class="app-topbar">
-            <div class="topbar-left">
-                <button class="icon-btn sidebar-toggle" type="button" data-sidebar-toggle aria-label="Open menu"><?= icon('menu') ?></button>
-                <div class="topbar-meta">
-                    <span class="topbar-portal"><?= e($roleLabel) ?> portal</span>
-                    <span class="topbar-date"><?= date('l, F j, Y') ?></span>
-                </div>
-            </div>
-
-            <div class="topbar-right">
-                <a class="icon-btn topbar-quick" href="<?= e(url(dashboard_url())) ?>" title="Dashboard"><?= icon('grid') ?></a>
-                <?php if ($notificationPollingEnabled): ?>
-                    <a class="icon-btn topbar-notifications"
-                       href="<?= e(url('/chat')) ?>"
-                       aria-label="<?= $notificationCount ?> unread notifications"
-                       title="Notifications"
-                       data-notification-poll
-                       data-notification-url="<?= e(url('/notifications/poll')) ?>"
-                       data-notification-target="<?= e(url('/chat')) ?>"
-                       data-last-notification-id="<?= $lastNotificationId ?>">
-                        <?= icon('info') ?>
-                        <span class="notification-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
-                    </a>
-                    <span class="sr-only" aria-live="polite" data-notification-status></span>
-                <?php endif; ?>
-                <details class="user-menu">
-                    <summary>
-                        <span class="avatar avatar-sm" style="background: <?= e($currentUser['avatar_color'] ?? '#2563eb') ?>"><?= e(initials($currentUser['name'] ?? 'U')) ?></span>
-                        <span class="user-menu-text">
-                            <strong><?= e($currentUser['name'] ?? 'User') ?></strong>
-                            <small><?= e($roleLabel) ?></small>
-                        </span>
-                        <?= icon('chevron-down') ?>
+            <?php if ($moreNav): ?>
+                <details class="dashboard-more">
+                    <summary class="dashboard-nav-link <?= $moreNavIsActive ? 'active' : '' ?>">
+                        More <?= icon('chevron-down') ?>
                     </summary>
-                    <div class="user-menu-panel">
-                        <a href="<?= e(url('/profile')) ?>"><?= icon('user') ?> My profile</a>
-                        <a href="<?= e(url('/')) ?>" target="_blank" rel="noopener"><?= icon('external') ?> View website</a>
-                        <div class="user-menu-divider"></div>
-                        <a href="<?= e(url('/logout')) ?>" class="danger-text"><?= icon('logout') ?> Sign out</a>
+                    <div class="dashboard-more-menu">
+                        <?php foreach ($moreNav as $item): ?>
+                            <a class="<?= $isActiveNavItem($item) ? 'active' : '' ?>"
+                               href="<?= e(url($item['path'])) ?>"
+                               <?= $isActiveNavItem($item) ? 'aria-current="page"' : '' ?>>
+                                <?= e($item['label']) ?>
+                                <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
+                                    <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
+                                <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
                     </div>
                 </details>
-            </div>
-        </header>
+            <?php endif; ?>
+        </nav>
 
+        <div class="dashboard-actions">
+            <?php if ($role === 'customer'): ?>
+                <a class="btn btn-primary dashboard-new-request" href="<?= e(url('/customer/requests/new')) ?>">
+                    <?= icon('plus') ?><span>New request</span>
+                </a>
+            <?php endif; ?>
+            <?php if ($notificationPollingEnabled): ?>
+                <a class="icon-btn topbar-notifications"
+                   href="<?= e(url('/chat')) ?>"
+                   aria-label="<?= $notificationCount ?> unread notifications"
+                   title="Notifications"
+                   data-notification-poll
+                   data-notification-url="<?= e(url('/notifications/poll')) ?>"
+                   data-notification-target="<?= e(url('/chat')) ?>"
+                   data-last-notification-id="<?= $lastNotificationId ?>">
+                    <?= icon('bell') ?>
+                    <span class="notification-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
+                </a>
+                <span class="sr-only" aria-live="polite" data-notification-status></span>
+            <?php endif; ?>
+            <details class="user-menu dashboard-user-menu">
+                <summary aria-label="Account menu for <?= e($currentUser['name'] ?? 'User') ?>">
+                    <span class="avatar avatar-sm" style="background: <?= e($currentUser['avatar_color'] ?? '#2563eb') ?>"><?= e(initials($currentUser['name'] ?? 'U')) ?></span>
+                    <span class="user-menu-text">
+                        <strong><?= e($currentUser['name'] ?? 'User') ?></strong>
+                        <small><?= e($roleLabel) ?></small>
+                    </span>
+                    <?= icon('chevron-down') ?>
+                </summary>
+                <div class="user-menu-panel">
+                    <a href="<?= e(url('/profile')) ?>"><?= icon('user') ?> My profile</a>
+                    <?php if ($role === 'customer'): ?>
+                        <a href="<?= e(url('/profile#saved-addresses')) ?>"><?= icon('pin') ?> Saved addresses</a>
+                    <?php endif; ?>
+                    <a href="<?= e(url('/')) ?>" target="_blank" rel="noopener"><?= icon('external') ?> View website</a>
+                    <div class="user-menu-divider"></div>
+                    <a href="<?= e(url('/logout')) ?>" class="danger-text"><?= icon('logout') ?> Sign out</a>
+                </div>
+            </details>
+        </div>
+    </header>
+
+    <div class="app-main dashboard-main">
         @include('partials.flash')
         <?php if ($notificationPollingEnabled): ?>
             <div class="toast-stack" role="status" aria-live="polite" aria-atomic="false" data-notification-toasts></div>
         <?php endif; ?>
 
-        <main class="app-content">
+        <main class="app-content dashboard-content">
             @yield('content')
         </main>
     </div>

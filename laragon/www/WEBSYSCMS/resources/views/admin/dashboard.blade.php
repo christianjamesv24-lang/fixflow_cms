@@ -10,18 +10,41 @@ foreach ($activeStatuses as $status) {
 $completionRate = $total > 0 ? round((($counts['completed'] ?? 0) / $total) * 100) : 0;
 $statusLabels = ['pending' => 'Pending', 'assigned' => 'Assigned', 'accepted' => 'Accepted', 'in_progress' => 'In progress', 'completed' => 'Completed', 'cancelled' => 'Cancelled'];
 $statusMax = max(1, max($counts));
+$firstName = explode(' ', Auth::user()['name'])[0];
 ?>
-<div class="page-head">
+<section class="dashboard-hero admin-hero">
     <div>
-        <p class="eyebrow">Service desk overview</p>
-        <h1>Good day, <?= e(explode(' ', Auth::user()['name'])[0]) ?></h1>
-        <p>Here is how the service desk is performing today, <?= date('F j, Y') ?>.</p>
+        <p class="dashboard-hero-kicker">Service desk workspace · <?= e(date('F j, Y')) ?></p>
+        <h1>Welcome back, <?= e($firstName) ?>.</h1>
+        <p>Review requests, coordinate technicians, and keep every repair moving.</p>
     </div>
-    <div class="page-head-actions">
-        <a class="btn btn-ghost" href="<?= e(url('/admin/reports')) ?>"><?= icon('chart') ?> Reports</a>
-        <a class="btn btn-primary" href="<?= e(url('/admin/requests')) ?>"><?= icon('clipboard') ?> Manage requests</a>
-    </div>
-</div>
+    <a class="btn btn-primary dashboard-hero-cta" href="<?= e(url('/admin/requests')) ?>">
+        <?= icon('clipboard') ?> Manage requests
+    </a>
+</section>
+
+<section class="quick-action-grid" aria-label="Admin quick actions">
+    <a class="quick-action-card quick-action-primary" href="<?= e(url('/admin/requests')) ?>">
+        <span class="quick-action-icon"><?= icon('clipboard') ?></span>
+        <span class="quick-action-copy"><strong>Service requests</strong><small><?= number_format($activeTotal) ?> active jobs need attention.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/admin/appointments')) ?>">
+        <span class="quick-action-icon"><?= icon('calendar') ?></span>
+        <span class="quick-action-copy"><strong>Appointments</strong><small><?= count($todayAppointments) ?> visits scheduled today.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/admin/technicians')) ?>">
+        <span class="quick-action-icon"><?= icon('users') ?></span>
+        <span class="quick-action-copy"><strong>Technician team</strong><small>Manage staff and job assignments.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/admin/subscriptions')) ?>">
+        <span class="quick-action-icon"><?= icon('credit-card') ?></span>
+        <span class="quick-action-copy"><strong>Subscription payments</strong><small>Review technician payment submissions.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+</section>
 
 <div class="stat-grid">
     <div class="stat-card">

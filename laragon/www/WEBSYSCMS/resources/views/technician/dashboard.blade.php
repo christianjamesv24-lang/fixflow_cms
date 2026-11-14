@@ -2,17 +2,39 @@
 
 @section('content')
 <?php $firstName = explode(' ', $user['name'])[0]; ?>
-<div class="page-head">
+<section class="dashboard-hero technician-hero">
     <div>
-        <p class="eyebrow">Technician portal</p>
-        <h1>Good day, <?= e($firstName) ?></h1>
-        <p><?= e($user['specialty'] ?: 'Your assigned jobs and schedule at a glance.') ?></p>
+        <p class="dashboard-hero-kicker">Technician workspace</p>
+        <h1>Good day, <?= e($firstName) ?>.</h1>
+        <p><?= e($user['specialty'] ?: 'Your jobs, schedule, and customer conversations in one place.') ?></p>
     </div>
-    <div class="page-head-actions">
-        <a class="btn btn-ghost" href="<?= e(url('/technician/schedule')) ?>"><?= icon('calendar') ?> My schedule</a>
-        <a class="btn btn-primary" href="<?= e(url('/technician/jobs')) ?>"><?= icon('clipboard') ?> Assigned jobs</a>
-    </div>
-</div>
+    <a class="btn btn-primary dashboard-hero-cta" href="<?= e(url('/technician/jobs')) ?>">
+        <?= icon('clipboard') ?> View assigned jobs
+    </a>
+</section>
+
+<section class="quick-action-grid" aria-label="Technician quick actions">
+    <a class="quick-action-card quick-action-primary" href="<?= e(url('/technician/jobs')) ?>">
+        <span class="quick-action-icon"><?= icon('clipboard') ?></span>
+        <span class="quick-action-copy"><strong>Assigned jobs</strong><small><?= number_format($counts['assigned']) ?> waiting for your response.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/technician/schedule')) ?>">
+        <span class="quick-action-icon"><?= icon('calendar') ?></span>
+        <span class="quick-action-copy"><strong>My schedule</strong><small>Review appointments and visit details.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/chat')) ?>">
+        <span class="quick-action-icon"><?= icon('message') ?></span>
+        <span class="quick-action-copy"><strong>Messages</strong><small>Keep in touch with the service desk.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/technician/subscription')) ?>">
+        <span class="quick-action-icon"><?= icon('credit-card') ?></span>
+        <span class="quick-action-copy"><strong>Subscription</strong><small>View your plan and payment status.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+</section>
 
 <div class="stat-grid">
     <div class="stat-card">

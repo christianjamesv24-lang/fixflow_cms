@@ -1,207 +1,152 @@
 @extends('layouts.app')
 
 @section('content')
-<?php $firstName = explode(' ', $user['name'])[0]; ?>
-<div class="page-head">
+<?php
+$firstName = explode(' ', $user['name'])[0];
+$chatTarget = null;
+foreach ($recent as $requestItem) {
+    if (!empty($requestItem['technician_name']) && in_array($requestItem['status'], ['assigned', 'accepted', 'in_progress'], true)) {
+        $chatTarget = $requestItem;
+        break;
+    }
+}
+$messagesUrl = $chatTarget
+    ? url('/service-requests/' . $chatTarget['id'] . '/chat')
+    : url('/customer/requests');
+?>
+
+<section class="dashboard-hero customer-hero">
     <div>
-        <p class="eyebrow">Customer portal</p>
-        <h1>Welcome back, <?= e($firstName) ?></h1>
-        <p>Here is what is happening with your appliance service.</p>
+        <p class="dashboard-hero-kicker">Your FixitNow dashboard</p>
+        <h1>Welcome back, <?= e($firstName) ?>.</h1>
+        <p>Track your repairs, chat with your technician, and book your next visit in seconds.</p>
     </div>
-    <div class="page-head-actions">
-        <a class="btn btn-primary" href="<?= e(url('/customer/requests/new')) ?>"><?= icon('plus') ?> New request</a>
-    </div>
-</div>
+    <a class="btn btn-primary dashboard-hero-cta" href="<?= e(url('/customer/requests/new')) ?>">
+        <?= icon('plus') ?> New service request
+    </a>
+</section>
 
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon"><?= icon('clipboard') ?></span>
-            <span class="stat-trend">All time</span>
-        </div>
-        <div>
-            <div class="stat-value"><?= number_format($total) ?></div>
-            <div class="stat-label">Service requests</div>
-        </div>
-        <div class="stat-foot">Every request keeps a full status history.</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon tone-warn"><?= icon('clock') ?></span>
-            <span class="stat-trend"><?= $counts['pending'] ?> awaiting assignment</span>
-        </div>
-        <div>
-            <div class="stat-value"><?= number_format($active) ?></div>
-            <div class="stat-label">Active requests</div>
-        </div>
-        <div class="stat-foot">Pending, assigned, accepted, or in progress.</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon tone-success"><?= icon('check-circle') ?></span>
-        </div>
-        <div>
-            <div class="stat-value"><?= number_format($counts['completed']) ?></div>
-            <div class="stat-label">Completed jobs</div>
-        </div>
-        <div class="stat-foot">Service reports are stored in each ticket.</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-card-top">
-            <span class="stat-icon tone-info"><?= icon('credit-card') ?></span>
-        </div>
-        <div>
-            <div class="stat-value"><?= e(money($spent)) ?></div>
-            <div class="stat-label">Total service spend</div>
-        </div>
-        <div class="stat-foot">Sum of final costs on completed jobs.</div>
-    </div>
-</div>
+<section class="quick-action-grid" aria-label="Quick actions">
+    <a class="quick-action-card quick-action-primary" href="<?= e(url('/customer/requests/new')) ?>">
+        <span class="quick-action-icon"><?= icon('plus') ?></span>
+        <span class="quick-action-copy"><strong>Book a repair</strong><small>Tell us what needs fixing.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/services')) ?>">
+        <span class="quick-action-icon"><?= icon('wrench') ?></span>
+        <span class="quick-action-copy"><strong>Browse services</strong><small>Explore appliance repair options.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e($messagesUrl) ?>">
+        <span class="quick-action-icon"><?= icon('message') ?></span>
+        <span class="quick-action-copy"><strong>Open messages</strong><small><?= $chatTarget ? 'Continue your request conversation.' : 'Chat appears when a technician is assigned.' ?></small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+    <a class="quick-action-card" href="<?= e(url('/profile#saved-addresses')) ?>">
+        <span class="quick-action-icon"><?= icon('pin') ?></span>
+        <span class="quick-action-copy"><strong>Saved addresses</strong><small>Keep your service locations ready.</small></span>
+        <?= icon('chevron-right', 'quick-action-arrow') ?>
+    </a>
+</section>
 
-<div class="dash-grid">
-    <div class="dash-stack">
-        <section class="panel">
-            <div class="panel-head">
+<section class="dashboard-stat-grid" aria-label="Repair summary">
+    <article class="dashboard-stat-card">
+        <span class="dashboard-stat-icon"><?= icon('clipboard') ?></span>
+        <div><strong><?= number_format($total) ?></strong><span>Service requests</span></div>
+    </article>
+    <article class="dashboard-stat-card">
+        <span class="dashboard-stat-icon tone-info"><?= icon('activity') ?></span>
+        <div><strong><?= number_format($active) ?></strong><span>Active repairs</span></div>
+    </article>
+    <article class="dashboard-stat-card">
+        <span class="dashboard-stat-icon tone-success"><?= icon('check-circle') ?></span>
+        <div><strong><?= number_format($counts['completed']) ?></strong><span>Completed jobs</span></div>
+    </article>
+    <article class="dashboard-stat-card">
+        <span class="dashboard-stat-icon tone-warn"><?= icon('credit-card') ?></span>
+        <div><strong><?= e(money($spent)) ?></strong><span>Total service spend</span></div>
+    </article>
+</section>
+
+<div class="dashboard-content-grid">
+    <section class="dashboard-section">
+        <div class="dashboard-section-heading">
+            <div>
+                <h2>Your repair activity</h2>
+                <p>Active and recent service requests.</p>
+            </div>
+            <a class="panel-link" href="<?= e(url('/customer/requests')) ?>">View all requests <?= icon('arrow-right') ?></a>
+        </div>
+
+        <?php if ($recent): ?>
+            <div class="activity-list">
+                <?php foreach ($recent as $item): ?>
+                    <a class="activity-card" href="<?= e(url('/customer/requests/' . $item['id'])) ?>">
+                        <span class="activity-icon"><?= icon('wrench') ?></span>
+                        <span class="activity-copy">
+                            <span class="activity-title">
+                                <strong><?= e($item['title']) ?></strong>
+                                <?= status_badge($item['status']) ?>
+                            </span>
+                            <small><?= e($item['category_name']) ?> · <?= e($item['ticket_no']) ?> · <?= e(format_date($item['created_at'], 'M j, Y')) ?></small>
+                            <small><?= e($item['technician_name'] ? 'Technician: ' . $item['technician_name'] : 'Waiting for technician assignment') ?></small>
+                        </span>
+                        <?= icon('chevron-right', 'activity-arrow') ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+        <?php else: ?>
+            <div class="dashboard-empty-state">
+                <span class="activity-icon"><?= icon('clipboard') ?></span>
+                <h3>No repair requests yet</h3>
+                <p>Submit your first service request and we will take it from there.</p>
+                <a class="btn btn-primary btn-sm" href="<?= e(url('/customer/requests/new')) ?>">Book a repair</a>
+            </div>
+        <?php endif; ?>
+    </section>
+
+    <aside class="dashboard-side-stack">
+        <section class="dashboard-side-card">
+            <div class="dashboard-section-heading">
                 <div>
-                    <h2 class="panel-title">Recent requests</h2>
-                    <p class="panel-sub">Your latest tickets and their current status.</p>
+                    <h2>Next appointment</h2>
+                    <p>Your upcoming technician visit.</p>
                 </div>
-                <a class="panel-link" href="<?= e(url('/customer/requests')) ?>">View all <?= icon('arrow-right') ?></a>
-            </div>
-
-            <?php if ($recent): ?>
-                <div class="table-wrap">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Ticket</th>
-                                <th>Service</th>
-                                <th>Technician</th>
-                                <th>Status</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recent as $item): ?>
-                                <tr>
-                                    <td>
-                                        <a class="table-ticket" href="<?= e(url('/customer/requests/' . $item['id'])) ?>"><?= e($item['ticket_no']) ?></a>
-                                        <div class="cell-muted"><?= e(format_date($item['created_at'], 'M j')) ?></div>
-                                    </td>
-                                    <td>
-                                        <div class="table-main">
-                                            <strong><?= e($item['title']) ?></strong>
-                                            <small><?= e($item['category_name']) ?></small>
-                                        </div>
-                                    </td>
-                                    <td><?= e($item['technician_name'] ?: 'Not assigned') ?></td>
-                                    <td><?= status_badge($item['status']) ?></td>
-                                    <td class="text-right">
-                                        <a class="icon-btn" href="<?= e(url('/customer/requests/' . $item['id'])) ?>" title="View ticket"><?= icon('chevron-right') ?></a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php else: ?>
-                <div class="empty-state">
-                    <?= icon('clipboard') ?>
-                    <h3>No requests yet</h3>
-                    <p>Submit your first service request and we will assign a technician.</p>
-                    <a class="btn btn-primary btn-sm" href="<?= e(url('/customer/requests/new')) ?>">Create a request</a>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <section class="panel">
-            <div class="panel-head">
-                <h2 class="panel-title">Need a hand?</h2>
-            </div>
-            <div class="panel-body">
-                <div class="feature-list" style="margin-top:0">
-                    <div class="feature-item">
-                        <span class="feature-icon"><?= icon('phone') ?></span>
-                        <div>
-                            <h3>Call the service desk</h3>
-                            <p><?= e(setting('contact_phone')) ?> · <?= e(setting('business_hours')) ?></p>
-                        </div>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon"><?= icon('mail') ?></span>
-                        <div>
-                            <h3>Email support</h3>
-                            <p><?= e(setting('contact_email')) ?></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-    </div>
-
-    <div class="dash-stack">
-        <section class="panel">
-            <div class="panel-head">
-                <div>
-                    <h2 class="panel-title">Next appointment</h2>
-                    <p class="panel-sub">Your upcoming technician visit.</p>
-                </div>
+                <?= icon('calendar', 'dashboard-heading-icon') ?>
             </div>
             <?php if ($upcoming): ?>
-                <div class="panel-body">
-                    <div class="appointment-item" style="padding:0;border:none">
-                        <div class="appointment-date">
-                            <strong><?= e(format_date($upcoming['scheduled_date'], 'd')) ?></strong>
-                            <span><?= e(format_date($upcoming['scheduled_date'], 'M')) ?></span>
-                        </div>
-                        <div class="appointment-main">
-                            <strong><?= e($upcoming['title']) ?></strong>
-                            <small><?= e($upcoming['ticket_no']) ?> · <?= e(date('g:i A', strtotime($upcoming['scheduled_time']))) ?> · <?= e($upcoming['duration_minutes']) ?> mins</small>
-                            <small><?= icon('user') ?> <?= e($upcoming['technician_name'] ?: 'Technician to be confirmed') ?></small>
-                        </div>
-                    </div>
-                    <div class="inline-actions mt-2">
-                        <?= status_badge($upcoming['status']) ?>
-                        <a class="btn btn-soft btn-sm" href="<?= e(url('/customer/requests/' . $upcoming['request_id'])) ?>">View ticket</a>
-                    </div>
+                <a class="appointment-highlight" href="<?= e(url('/customer/requests/' . $upcoming['request_id'])) ?>">
+                    <span class="appointment-date">
+                        <strong><?= e(format_date($upcoming['scheduled_date'], 'd')) ?></strong>
+                        <span><?= e(format_date($upcoming['scheduled_date'], 'M')) ?></span>
+                    </span>
+                    <span class="appointment-main">
+                        <strong><?= e($upcoming['title']) ?></strong>
+                        <small><?= e($upcoming['ticket_no']) ?> · <?= e(date('g:i A', strtotime($upcoming['scheduled_time']))) ?></small>
+                        <small><?= icon('user') ?> <?= e($upcoming['technician_name'] ?: 'Technician to be confirmed') ?></small>
+                    </span>
+                </a>
+                <div class="appointment-highlight-footer">
+                    <?= status_badge($upcoming['status']) ?>
+                    <a class="panel-link" href="<?= e(url('/customer/requests/' . $upcoming['request_id'])) ?>">View ticket <?= icon('arrow-right') ?></a>
                 </div>
             <?php else: ?>
-                <div class="empty-state" style="padding:28px 20px">
+                <div class="dashboard-empty-compact">
                     <?= icon('calendar') ?>
-                    <h3>No scheduled visits</h3>
-                    <p>When an appointment is booked it will show up here.</p>
+                    <strong>No scheduled visits</strong>
+                    <span>Your appointment details will appear here.</span>
                 </div>
             <?php endif; ?>
         </section>
 
-        <section class="panel">
-            <div class="panel-head">
-                <h2 class="panel-title">Request status</h2>
-            </div>
-            <div class="panel-body">
-                <div class="bar-list">
-                    <?php
-                    $statusTones = ['pending' => 'warn', 'assigned' => 'info', 'accepted' => 'info', 'in_progress' => 'brand', 'completed' => 'success', 'cancelled' => 'muted'];
-                    $maxCount = max(1, $total);
-                    foreach ($counts as $key => $value):
-                    ?>
-                        <div class="bar-row">
-                            <span class="bar-row-label"><?= e(ucwords(str_replace('_', ' ', $key))) ?></span>
-                            <span class="bar-track"><span class="bar-fill tone-<?= $statusTones[$key] ?? 'muted' ?>" style="width: <?= $value > 0 ? max(4, round($value / $maxCount * 100)) : 0 ?>%; display:block"></span></span>
-                            <span class="bar-row-value"><?= $value ?></span>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
+        <section class="dashboard-side-card support-card">
+            <span class="dashboard-stat-icon"><?= icon('phone') ?></span>
+            <div>
+                <h2>Need a hand?</h2>
+                <p>Contact the service desk for help with a request.</p>
+                <a class="panel-link" href="<?= e(url('/contact')) ?>">Contact support <?= icon('arrow-right') ?></a>
             </div>
         </section>
-
-        <section class="panel">
-            <div class="panel-body stack-sm">
-                <a class="btn btn-primary btn-block" href="<?= e(url('/customer/requests/new')) ?>"><?= icon('plus') ?> Book a repair</a>
-                <a class="btn btn-ghost btn-block" href="<?= e(url('/services')) ?>">Browse services</a>
-            </div>
-        </section>
-    </div>
+    </aside>
 </div>
-
 @endsection
