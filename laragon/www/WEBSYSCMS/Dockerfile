@@ -62,6 +62,12 @@ RUN sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" /etc/apache2/sites-avail
         '    Require all granted' \
         '</Directory>' \
         >> /etc/apache2/apache2.conf \
+    && mkdir -p \
+        /tmp/laravel-storage/app/private \
+        /tmp/laravel-storage/framework/cache/data \
+        /tmp/laravel-storage/framework/sessions \
+        /tmp/laravel-storage/framework/views \
+        /tmp/laravel-storage/logs \
     && composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
     && chown -R www-data:www-data bootstrap/cache
 
