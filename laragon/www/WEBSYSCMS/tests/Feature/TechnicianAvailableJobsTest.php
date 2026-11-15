@@ -22,7 +22,7 @@ class TechnicianAvailableJobsTest extends TestCase
             'ticket_no' => 'SR-AVAILABLE-1001',
             'title' => 'Refrigerator not cooling',
             'description' => 'The refrigerator stopped cooling this morning.',
-            'address' => '123 Private Street',
+            'address' => '123 Private Street, Cebu City, Central Visayas',
         ]);
         $this->createRequest($customer, $categoryId, [
             'ticket_no' => 'SR-ASSIGNED-1002',
@@ -42,10 +42,104 @@ class TechnicianAvailableJobsTest extends TestCase
             ->assertSee('Available jobs')
             ->assertSee('SR-AVAILABLE-1001')
             ->assertSee('The refrigerator stopped cooling this morning.')
+            ->assertSee('Cebu City, Central Visayas')
             ->assertDontSee('SR-ASSIGNED-1002')
             ->assertDontSee('SR-CANCELLED-1003')
             ->assertDontSee('123 Private Street')
             ->assertDontSee('customer@example.com');
+    }
+
+    public function test_technicians_can_claim_open_requests_and_view_customer_details_afterward(): void
+    {
+        $technician = $this->createTechnician();
+        $customer = $this->createUser('customer', 'claim-customer@example.com');
+        $categoryId = (int) DB::table('service_categories')->where('slug', 'refrigerator')->value('id');
+        $this->createRequest($customer, $categoryId, [
+            'ticket_no' => 'SR-CLAIM-1001',
+            'address' => '123 Private Street, Cebu City, Central Visayas',
+        ]);
+        $requestId = (int) DB::table('service_requests')->where('ticket_no', 'SR-CLAIM-1001')->value('id');
+
+        $this->actingAs($technician)
+            ->post('/technician/jobs/'.$requestId.'/claim')
+            ->assertRedirect('/technician/jobs/'.$requestId);
+
+        $this->assertDatabaseHas('service_requests', [
+            'id' => $requestId,
+            'technician_id' => $technician->id,
+            'status' => 'accepted',
+        ]);
+        $this->assertNotNull(DB::table('service_requests')->where('id', $requestId)->value('assigned_at'));
+        $this->assertDatabaseHas('request_status_history', [
+            'request_id' => $requestId,
+            'status' => 'accepted',
+            'note' => 'Technician claimed the open request.',
+            'changed_by' => $technician->id,
+        ]);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $customer->id,
+            'title' => 'Your request was claimed',
+            'target_url' => url('/customer/requests/'.$requestId),
+        ]);
+
+        $this->actingAs($technician)
+            ->get('/technician/jobs/'.$requestId)
+            ->assertOk()
+            ->assertSee('claim-customer@example.com')
+            ->assertSee('123 Private Street');
+    }
+
+    public function test_a_second_technician_cannot_claim_a_request_already_claimed_by_another(): void
+    {
+        $firstTechnician = $this->createTechnician('first-claim-technician@example.com');
+        $secondTechnician = $this->createTechnician('second-claim-technician@example.com');
+        $customer = $this->createUser('customer', 'first-claim-customer@example.com');
+        $categoryId = (int) DB::table('service_categories')->where('slug', 'refrigerator')->value('id');
+        $this->createRequest($customer, $categoryId, [
+            'ticket_no' => 'SR-FIRST-CLAIM-1001',
+        ]);
+        $requestId = (int) DB::table('service_requests')->where('ticket_no', 'SR-FIRST-CLAIM-1001')->value('id');
+
+        $this->actingAs($firstTechnician)
+            ->post('/technician/jobs/'.$requestId.'/claim')
+            ->assertRedirect('/technician/jobs/'.$requestId);
+
+        $this->actingAs($secondTechnician)
+            ->post('/technician/jobs/'.$requestId.'/claim')
+            ->assertRedirect('/technician/jobs/available');
+
+        $this->assertDatabaseHas('service_requests', [
+            'id' => $requestId,
+            'technician_id' => $firstTechnician->id,
+            'status' => 'accepted',
+        ]);
+        $this->assertSame(
+            1,
+            DB::table('request_status_history')
+                ->where('request_id', $requestId)
+                ->where('status', 'accepted')
+                ->count()
+        );
+    }
+
+    public function test_customers_cannot_claim_an_open_request(): void
+    {
+        $customer = $this->createUser('customer', 'cannot-claim@example.com');
+        $categoryId = (int) DB::table('service_categories')->where('slug', 'refrigerator')->value('id');
+        $this->createRequest($customer, $categoryId, [
+            'ticket_no' => 'SR-CUSTOMER-CLAIM-1001',
+        ]);
+        $requestId = (int) DB::table('service_requests')->where('ticket_no', 'SR-CUSTOMER-CLAIM-1001')->value('id');
+
+        $this->actingAs($customer)
+            ->post('/technician/jobs/'.$requestId.'/claim')
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('service_requests', [
+            'id' => $requestId,
+            'technician_id' => null,
+            'status' => 'pending',
+        ]);
     }
 
     public function test_available_jobs_can_be_searched_by_request_details(): void
@@ -96,9 +190,9 @@ class TechnicianAvailableJobsTest extends TestCase
         ]);
     }
 
-    private function createTechnician(): User
+    private function createTechnician(string $email = 'available-technician@example.com'): User
     {
-        $technician = $this->createUser('technician', 'available-technician@example.com');
+        $technician = $this->createUser('technician', $email);
 
         DB::table('subscriptions')->insert([
             'user_id' => $technician->id,

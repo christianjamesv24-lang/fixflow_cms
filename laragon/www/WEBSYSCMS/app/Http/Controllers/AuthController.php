@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Auth\Events\PasswordReset;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 
 class AuthController extends Controller
@@ -80,7 +81,14 @@ class AuthController extends Controller
             return redirect('/forgot-password')->withInput(['email' => $email]);
         }
 
-        Password::sendResetLink(['email' => $email]);
+        try {
+            Password::sendResetLink(['email' => $email]);
+        } catch (\Throwable $exception) {
+            Log::error('Password reset email delivery failed.', [
+                'mailer' => config('mail.default'),
+                'exception' => $exception::class,
+            ]);
+        }
 
         $this->flash('success', 'If an account exists for that email, a password recovery link will be sent.');
 

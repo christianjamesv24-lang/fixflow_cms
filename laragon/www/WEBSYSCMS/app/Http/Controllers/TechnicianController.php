@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CustomerRequestNotifier;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
 class TechnicianController extends Controller
@@ -154,7 +155,7 @@ class TechnicianController extends Controller
         $pagination = $this->paginate($total, $perPage, $page);
         $jobs = db_all(
             "SELECT r.id, r.ticket_no, r.service_type, r.title, r.description, r.brand, r.model,
-                    r.priority, r.preferred_date, r.preferred_time, r.created_at,
+                    r.address, r.priority, r.preferred_date, r.preferred_time, r.created_at,
                     c.name AS category_name, c.icon AS category_icon
              FROM service_requests r
              JOIN service_categories c ON c.id = r.category_id
@@ -164,6 +165,19 @@ class TechnicianController extends Controller
              LIMIT {$perPage} OFFSET {$pagination['offset']}",
             $params
         );
+        $jobs = array_map(static function (array $job): array {
+            $addressParts = array_values(array_filter(
+                array_map('trim', explode(',', (string) $job['address'])),
+                static fn (string $part): bool => $part !== ''
+            ));
+
+            $job['general_area'] = count($addressParts) > 1
+                ? implode(', ', array_slice($addressParts, -min(2, count($addressParts) - 1)))
+                : 'Area withheld until claim';
+            unset($job['address']);
+
+            return $job;
+        }, $jobs);
 
         return view('technician.available-jobs', [
             'title' => 'Available jobs',
@@ -173,6 +187,58 @@ class TechnicianController extends Controller
             'totalPages' => $pagination['pages'],
             'total' => $total,
         ]);
+    }
+
+    public function claim(int $id): RedirectResponse
+    {
+        $user = $this->authUser();
+        $claimedAt = now();
+
+        $claimed = DB::transaction(function () use ($id, $user, $claimedAt): bool {
+            $updated = DB::table('service_requests')
+                ->where('id', $id)
+                ->whereNull('technician_id')
+                ->where('status', 'pending')
+                ->update([
+                    'technician_id' => $user->id,
+                    'status' => 'accepted',
+                    'assigned_at' => $claimedAt,
+                    'updated_at' => $claimedAt,
+                ]);
+
+            if ($updated !== 1) {
+                return false;
+            }
+
+            DB::table('request_status_history')->insert([
+                'request_id' => $id,
+                'status' => 'accepted',
+                'note' => 'Technician claimed the open request.',
+                'changed_by' => $user->id,
+                'created_at' => $claimedAt,
+            ]);
+
+            return true;
+        });
+
+        if (! $claimed) {
+            $this->flash('error', 'This request is no longer available. Refresh the job board.');
+
+            return redirect('/technician/jobs/available');
+        }
+
+        $request = $this->findJob($id, (int) $user->id);
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Your request was claimed',
+            $user->name.' claimed request #'.$request['ticket_no'].'.'
+        );
+
+        $this->log('claim_job', 'Claimed request '.$request['ticket_no']);
+        $this->flash('success', 'Job claimed. Customer details are now available.');
+
+        return redirect('/technician/jobs/'.$request['id']);
     }
 
     public function show(int $id)

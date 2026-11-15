@@ -26,7 +26,7 @@
 
 <div class="note-box mt-2">
     <?= icon('info') ?>
-    <p>These are customer requests awaiting assignment. Customer contact details and exact addresses are kept private until a job is assigned.</p>
+    <p>These are customer requests awaiting assignment. Customer contact details and exact street addresses stay private until you claim a job.</p>
 </div>
 
 <?php if ($jobs): ?>
@@ -36,9 +36,11 @@
                 <tr>
                     <th>Ticket</th>
                     <th>Request</th>
+                    <th>General area</th>
                     <th>Preferred visit</th>
                     <th>Priority</th>
                     <th>Posted</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -57,12 +59,19 @@
                                 <?php endif; ?>
                             </div>
                         </td>
+                        <td class="cell-muted"><?= e($job['general_area']) ?></td>
                         <td class="cell-muted">
                             <?= e($job['preferred_date'] ? format_date($job['preferred_date'], 'M j, Y') : 'Flexible') ?>
                             <?php if ($job['preferred_time']): ?><div><?= e($job['preferred_time']) ?></div><?php endif; ?>
                         </td>
                         <td><?= status_badge($job['priority']) ?></td>
                         <td class="cell-muted"><?= e(format_date($job['created_at'], 'M j, Y')) ?></td>
+                        <td>
+                            <form method="post" action="<?= e(url('/technician/jobs/'.$job['id'].'/claim')) ?>">
+                                <?= csrf_field() ?>
+                                <button class="btn btn-primary btn-sm" type="submit">Claim job</button>
+                            </form>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>

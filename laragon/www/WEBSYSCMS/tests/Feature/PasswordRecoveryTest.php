@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
@@ -44,6 +45,31 @@ class PasswordRecoveryTest extends TestCase
             ->assertSessionHas('_toasts', fn (array $toasts): bool => str_contains($toasts[0]['message'], 'If an account exists'));
 
         Notification::assertNothingSent();
+    }
+
+    public function test_password_recovery_handles_delivery_failures_without_exposing_account_status(): void
+    {
+        config(['mail.default' => 'resend']);
+        $user = $this->createUser();
+        $exception = new \RuntimeException('private transport details');
+
+        Password::shouldReceive('sendResetLink')
+            ->once()
+            ->with(['email' => $user->email])
+            ->andThrow($exception);
+
+        Log::spy();
+
+        $this->post('/forgot-password', ['email' => $user->email])
+            ->assertRedirect('/forgot-password')
+            ->assertSessionHas('_toasts', fn (array $toasts): bool => str_contains($toasts[0]['message'], 'If an account exists'));
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->with('Password reset email delivery failed.', [
+                'mailer' => 'resend',
+                'exception' => \RuntimeException::class,
+            ]);
     }
 
     public function test_password_recovery_does_not_log_reset_tokens_when_mail_is_unconfigured(): void
