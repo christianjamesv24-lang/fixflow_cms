@@ -44,6 +44,18 @@ class ChatControllerTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_assigned_customer_can_open_the_request_chat(): void
+    {
+        [$customer, , $requestId] = $this->createAssignedRequest();
+
+        $this->actingAs($customer)
+            ->get('/service-requests/'.$requestId.'/chat')
+            ->assertOk()
+            ->assertSee('Jump to latest messages')
+            ->assertSee('data-request-chat-status', false)
+            ->assertSee('data-share-chat-location', false);
+    }
+
     private function createAssignedRequest(): array
     {
         $customer = $this->createUser('customer', 'customer@example.com');

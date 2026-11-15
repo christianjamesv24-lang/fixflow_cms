@@ -14,7 +14,6 @@ $lastMessageId = $chatMessages ? (int) end($chatMessages)['id'] : 0;
     </div>
     <div class="page-head-actions">
         <a class="btn btn-ghost" href="<?= e($user->role === 'customer' ? url('/customer/requests/'.$serviceRequest['id']) : url('/technician/jobs/'.$serviceRequest['id'])) ?>">Back to request</a>
-        <span class="status-badge success" data-request-chat-status aria-live="polite">Connecting...</span>
     </div>
 </div>
 
@@ -26,15 +25,15 @@ $lastMessageId = $chatMessages ? (int) end($chatMessages)['id'] : 0;
      data-tile-url="<?= e(config('services.location.tile_url')) ?>"
      data-last-message-id="<?= $lastMessageId ?>">
     <section class="chat-panel">
-        <div class="chat-header">
+        <div class="chat-header request-chat-header">
             <div class="chat-person">
                 <span class="avatar avatar-sm" style="background: <?= e($peer['avatar_color'] ?? '#2563eb') ?>;"><?= e(strtoupper(substr($peer['name'] ?? 'U', 0, 1))) ?></span>
                 <div>
                     <strong><?= e($peer['name'] ?? 'Service contact') ?></strong>
-                    <small><?= e(ucfirst($peer['role'] ?? '')) ?></small>
+                    <small><?= e(ucfirst($peer['role'] ?? '')) ?> · <?= e($serviceRequest['ticket_no']) ?></small>
                 </div>
             </div>
-            <span class="text-sm text-muted"><?= e($serviceRequest['ticket_no']) ?></span>
+            <span class="request-chat-connection" data-request-chat-status aria-live="polite">Connecting…</span>
         </div>
 
         <div class="chat-messages" data-request-chat-messages aria-live="polite">
@@ -66,15 +65,20 @@ $lastMessageId = $chatMessages ? (int) end($chatMessages)['id'] : 0;
                 </div>
             <?php endif; ?>
         </div>
+        <button type="button" class="request-chat-new-messages" data-request-chat-scroll-bottom hidden>Jump to latest messages</button>
 
         <form class="chat-form" data-request-chat-form>
-            <textarea name="message" rows="1" placeholder="Type a message..." maxlength="2000" aria-label="Message"></textarea>
             <?php if ($user->role === 'customer'): ?>
-                <button type="button" class="btn btn-soft" data-share-chat-location>Share my location</button>
+                <button type="button" class="btn btn-soft request-chat-location-button" data-share-chat-location aria-label="Share your current location once" title="Share your current location once">
+                    <?= icon('pin') ?><span>Location</span>
+                </button>
             <?php endif; ?>
-            <button type="submit" class="btn btn-primary">Send</button>
+            <textarea name="message" rows="1" placeholder="Type a message..." maxlength="2000" aria-label="Message"></textarea>
+            <button type="submit" class="btn btn-primary request-chat-send" data-request-chat-send>
+                <?= icon('send') ?><span>Send</span>
+            </button>
         </form>
-        <p class="field-hint request-chat-hint" data-request-chat-feedback aria-live="polite">Your location is shared only when you choose the button above. It is not tracked continuously.</p>
+        <p class="field-hint request-chat-hint" data-request-chat-feedback aria-live="polite">Messages update automatically. Your location is shared only when you choose Location.</p>
     </section>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

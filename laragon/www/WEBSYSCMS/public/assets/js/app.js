@@ -3,6 +3,52 @@
 
     var body = document.body;
 
+    function requestCurrentPosition(onSuccess, onError, onFallback) {
+        if (window.isSecureContext === false) {
+            onError({ message: 'Location needs a secure HTTPS connection. Open this site using its https:// address.' });
+            return;
+        }
+        if (!navigator.geolocation) {
+            onError({ message: 'This browser cannot access location. Enter an address or choose a pin on the map.' });
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(onSuccess, function (error) {
+            if (error.code === error.PERMISSION_DENIED) {
+                onError(error);
+                return;
+            }
+            if (onFallback) {
+                onFallback();
+            }
+            navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+                enableHighAccuracy: false,
+                maximumAge: 60000,
+                timeout: 25000
+            });
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 10000,
+            timeout: 12000
+        });
+    }
+
+    function locationErrorMessage(error) {
+        if (error && error.code === error.PERMISSION_DENIED) {
+            return 'Location permission is blocked. Allow location for this site in your browser and phone settings, then try again.';
+        }
+        if (error && error.code === error.POSITION_UNAVAILABLE) {
+            return 'Your phone could not determine a location. Turn on Location Services or GPS and try again.';
+        }
+        if (error && error.code === error.TIMEOUT) {
+            return 'Location took too long. Keep this page open, turn on GPS, and try again.';
+        }
+        if (error && error.message) {
+            return error.message;
+        }
+        return 'Could not get your location. Check your phone settings and try again.';
+    }
+
     var header = document.querySelector('[data-header]');
     if (header) {
         var syncHeader = function () {
@@ -306,6 +352,12 @@
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
+            window.setTimeout(function () {
+                map.invalidateSize({ pan: false });
+            }, 150);
+            window.addEventListener('resize', function () {
+                map.invalidateSize({ pan: false });
+            });
             var initialLatitude = Number(latitudeInput.value);
             var initialLongitude = Number(longitudeInput.value);
             if (latitudeInput.value && longitudeInput.value && Number.isFinite(initialLatitude) && Number.isFinite(initialLongitude)) {
@@ -321,17 +373,11 @@
 
         if (useLocationButton) {
             useLocationButton.addEventListener('click', function () {
-                if (!navigator.geolocation) {
-                    if (status) {
-                        status.textContent = 'This browser does not support location. Enter your address manually.';
-                    }
-                    return;
-                }
                 useLocationButton.disabled = true;
                 if (status) {
                     status.textContent = 'Requesting your location…';
                 }
-                navigator.geolocation.getCurrentPosition(function (position) {
+                requestCurrentPosition(function (position) {
                     var latitude = position.coords.latitude;
                     var longitude = position.coords.longitude;
                     var accuracy = position.coords.accuracy;
@@ -340,15 +386,13 @@
                     useLocationButton.disabled = false;
                 }, function (error) {
                     if (status) {
-                        status.textContent = error.code === error.PERMISSION_DENIED
-                            ? 'Location permission was denied. Enter your address manually or allow location access.'
-                            : 'Could not get your location. Check your device settings and try again.';
+                        status.textContent = locationErrorMessage(error);
                     }
                     useLocationButton.disabled = false;
-                }, {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 20000
+                }, function () {
+                    if (status) {
+                        status.textContent = 'GPS is taking longer. Trying your phone’s network location…';
+                    }
                 });
             });
         }
@@ -401,6 +445,12 @@
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
+            window.setTimeout(function () {
+                map.invalidateSize({ pan: false });
+            }, 150);
+            window.addEventListener('resize', function () {
+                map.invalidateSize({ pan: false });
+            });
         }
 
         function markerIcon(kind) {
@@ -563,29 +613,31 @@
 
         if (startButton && stopButton) {
             startButton.addEventListener('click', function () {
-                if (!navigator.geolocation) {
-                    setStatus('This browser does not support location sharing.');
-                    return;
-                }
                 startButton.disabled = true;
                 setStatus('Requesting permission to share your location…');
-                watchId = navigator.geolocation.watchPosition(function (position) {
+                requestCurrentPosition(function (position) {
                     if (startButton) {
                         startButton.disabled = false;
                         startButton.hidden = true;
                     }
                     stopButton.hidden = false;
                     sendPosition(position);
+                    watchId = navigator.geolocation.watchPosition(function (nextPosition) {
+                        sendPosition(nextPosition);
+                    }, function (error) {
+                        stopSharing(false);
+                        startButton.disabled = false;
+                        setStatus(locationErrorMessage(error));
+                    }, {
+                        enableHighAccuracy: true,
+                        maximumAge: 10000,
+                        timeout: 60000
+                    });
                 }, function (error) {
-                    stopSharing(false);
                     startButton.disabled = false;
-                    setStatus(error.code === error.PERMISSION_DENIED
-                        ? 'Location permission was denied. Your location is not being shared.'
-                        : 'Unable to get your location. Check your device settings and try again.');
-                }, {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 20000
+                    setStatus(locationErrorMessage(error));
+                }, function () {
+                    setStatus('GPS is taking longer. Trying your phone’s network location…');
                 });
             });
             stopButton.addEventListener('click', function () {
@@ -612,9 +664,23 @@
         var status = document.querySelector('[data-request-chat-status]');
         var feedback = shell.querySelector('[data-request-chat-feedback]');
         var shareLocationButton = shell.querySelector('[data-share-chat-location]');
+        var sendButton = shell.querySelector('[data-request-chat-send]');
+        var scrollToLatestButton = shell.querySelector('[data-request-chat-scroll-bottom]');
         var lastId = Number(shell.getAttribute('data-last-message-id') || 0);
         var loading = false;
+        var sending = false;
         var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        function isNearLatestMessage() {
+            return messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 100;
+        }
+
+        function scrollToLatestMessage() {
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+            if (scrollToLatestButton) {
+                scrollToLatestButton.hidden = true;
+            }
+        }
 
         function formatTime(value) {
             var date = new Date(value);
@@ -649,6 +715,12 @@
                     iconAnchor: [11, 11]
                 })
             }).addTo(map);
+            window.setTimeout(function () {
+                map.invalidateSize({ pan: false });
+            }, 150);
+            window.addEventListener('resize', function () {
+                map.invalidateSize({ pan: false });
+            });
             container.setAttribute('data-map-ready', '1');
         }
 
@@ -656,6 +728,8 @@
             if (!message || !message.id || Number(message.id) <= lastId) {
                 return;
             }
+            var wasNearLatest = isNearLatestMessage();
+            var isOwnMessage = Number(message.sender_id) === userId;
             lastId = Number(message.id);
             shell.setAttribute('data-last-message-id', String(lastId));
             var emptyMessage = messagesBox.querySelector('[data-request-chat-empty]');
@@ -663,7 +737,7 @@
                 emptyMessage.remove();
             }
             var wrapper = document.createElement('div');
-            wrapper.className = 'chat-message ' + (Number(message.sender_id) === userId ? 'is-self' : '');
+            wrapper.className = 'chat-message ' + (isOwnMessage ? 'is-self' : '');
             wrapper.setAttribute('data-message-id', String(message.id));
             var bubble = document.createElement('div');
             bubble.className = 'chat-bubble';
@@ -701,7 +775,11 @@
             wrapper.appendChild(bubble);
             messagesBox.appendChild(wrapper);
             initChatMap(locationMap);
-            messagesBox.scrollTop = messagesBox.scrollHeight;
+            if (wasNearLatest || isOwnMessage) {
+                scrollToLatestMessage();
+            } else if (scrollToLatestButton) {
+                scrollToLatestButton.hidden = false;
+            }
         }
 
         function setConnectionState(connected) {
@@ -771,8 +849,12 @@
         form.addEventListener('submit', function (event) {
             event.preventDefault();
             var message = textarea.value.trim();
-            if (!message) {
+            if (!message || sending) {
                 return;
+            }
+            sending = true;
+            if (sendButton) {
+                sendButton.disabled = true;
             }
             send({ message_type: 'text', message: message })
                 .then(function (payload) {
@@ -787,18 +869,20 @@
                     if (feedback) {
                         feedback.textContent = error.message;
                     }
+                })
+                .then(function () {
+                    sending = false;
+                    if (sendButton) {
+                        sendButton.disabled = false;
+                    }
                 });
         });
 
         if (shareLocationButton) {
             shareLocationButton.addEventListener('click', function () {
-                if (!navigator.geolocation) {
-                    feedback.textContent = 'This browser does not support location sharing.';
-                    return;
-                }
                 shareLocationButton.disabled = true;
                 feedback.textContent = 'Requesting your location…';
-                navigator.geolocation.getCurrentPosition(function (position) {
+                requestCurrentPosition(function (position) {
                     send({
                         message_type: 'location',
                         message: 'Shared a one-time location pin',
@@ -817,26 +901,53 @@
                             shareLocationButton.disabled = false;
                         });
                 }, function (error) {
-                    feedback.textContent = error.code === error.PERMISSION_DENIED
-                        ? 'Location permission was denied. No location was shared.'
-                        : 'Could not get your location. Check your device settings and try again.';
+                    feedback.textContent = locationErrorMessage(error);
                     shareLocationButton.disabled = false;
-                }, {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 20000
+                }, function () {
+                    feedback.textContent = 'GPS is taking longer. Trying your phone’s network location…';
                 });
             });
         }
+
+        textarea.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter' || event.shiftKey || event.isComposing) {
+                return;
+            }
+            event.preventDefault();
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            }
+        });
 
         textarea.addEventListener('input', function () {
             textarea.style.height = 'auto';
             textarea.style.height = Math.min(textarea.scrollHeight, 140) + 'px';
         });
 
+        if (scrollToLatestButton) {
+            scrollToLatestButton.addEventListener('click', scrollToLatestMessage);
+            messagesBox.addEventListener('scroll', function () {
+                if (isNearLatestMessage()) {
+                    scrollToLatestButton.hidden = true;
+                }
+            });
+        }
+
         messagesBox.querySelectorAll('[data-chat-location-map]').forEach(initChatMap);
+        window.requestAnimationFrame(scrollToLatestMessage);
         loadMessages();
-        window.setInterval(loadMessages, 3000);
+        window.setInterval(function () {
+            if (!document.hidden) {
+                loadMessages();
+            }
+        }, 2000);
+        document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) {
+                loadMessages();
+            }
+        });
     });
 
     document.addEventListener('click', function (event) {
