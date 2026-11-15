@@ -4577,6 +4577,12 @@ textarea {
     box-shadow: 0 7px 15px rgba(12, 122, 112, .2);
 }
 
+.dashboard-brand .brand-mark-image {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+}
+
 .dashboard-brand .brand-text {
     color: #111827;
     font-size: 20px;

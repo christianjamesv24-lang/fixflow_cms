@@ -24,7 +24,7 @@ class CustomerRequestFormTest extends TestCase
             ->assertSee('Water Heater');
     }
 
-    public function test_missing_uploaded_logo_uses_the_default_blue_brand_mark(): void
+    public function test_missing_uploaded_logo_uses_the_original_fixitnow_logo(): void
     {
         DB::table('settings')->updateOrInsert(
             ['setting_key' => 'site_logo'],
@@ -34,8 +34,8 @@ class CustomerRequestFormTest extends TestCase
 
         $this->get('/login')
             ->assertOk()
-            ->assertSee('<span class="brand-mark">', false)
-            ->assertDontSee('<img class="brand-mark-image"', false);
+            ->assertSee(asset('assets/img/favicon.svg'))
+            ->assertDontSee('uploads/branding/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png');
     }
 
     public function test_new_customer_requests_notify_the_customer_and_only_eligible_technicians(): void

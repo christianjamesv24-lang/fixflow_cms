@@ -9,5 +9,5 @@ if (preg_match('/\Auploads\/branding\/[a-f0-9]{32}\.(?:jpe?g|png|webp)\z/i', $si
 <?php if ($siteLogo !== ''): ?>
     <img class="brand-mark-image" src="<?= e(asset($siteLogo)) ?>" alt="">
 <?php else: ?>
-    <span class="brand-mark"><?= icon('wrench') ?></span>
+    <img class="brand-mark-image" src="<?= e(asset('assets/img/favicon.svg')) ?>" alt="">
 <?php endif; ?>
