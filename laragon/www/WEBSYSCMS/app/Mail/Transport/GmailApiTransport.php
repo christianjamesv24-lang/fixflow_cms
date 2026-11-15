@@ -32,7 +32,19 @@ class GmailApiTransport extends AbstractTransport
             ->post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', ['raw' => $raw]);
 
         if (! $response->successful()) {
-            Log::error('Gmail API rejected an email message.', ['http_status' => $response->status()]);
+            $context = ['http_status' => $response->status()];
+            $errorStatus = $response->json('error.status');
+            $errorReason = $response->json('error.errors.0.reason');
+
+            if (is_string($errorStatus) && preg_match('/\A[A-Z_]+\z/', $errorStatus)) {
+                $context['error_status'] = $errorStatus;
+            }
+
+            if (is_string($errorReason) && preg_match('/\A[A-Za-z][A-Za-z0-9_]*\z/', $errorReason)) {
+                $context['error_reason'] = $errorReason;
+            }
+
+            Log::error('Gmail API rejected an email message.', $context);
 
             throw new RuntimeException('Gmail API rejected the message (HTTP '.$response->status().').');
         }
