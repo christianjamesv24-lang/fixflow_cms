@@ -8,7 +8,7 @@ For a presentation deployment on Render or another production host, set both `SU
 
 When PayMongo is configured, technicians are sent to PayMongo Hosted Checkout to pay by GCash. The app activates the subscription and approves the technician account only after receiving a valid `checkout_session.payment.paid` webhook; returning to the site after checkout is not proof of payment. PayMongo payments cannot be manually approved or rejected in the admin panel.
 
-After approval, the technician subscription page shows the payment amount, method, reference, payment date, and paid-through date. Technicians can schedule cancellation at the end of the current paid period; their access remains active until that date, and the payment is not refunded. Subscriptions are currently one-time payments, not automatic recurring charges. A pending renewal must be resolved before cancellation can be scheduled.
+After approval, the technician subscription page shows the payment amount, method, reference, payment date, and paid-through date. Plan choices stay hidden while an active subscription is in good standing; the technician can reveal them to extend or renew, and they reappear automatically when cancellation is scheduled or the plan expires. Technicians can schedule cancellation at the end of the current paid period; their access remains active until that date, and the payment is not refunded. Subscriptions are currently one-time payments, not automatic recurring charges. A pending renewal must be resolved before cancellation can be scheduled.
 
 To configure PayMongo:
 

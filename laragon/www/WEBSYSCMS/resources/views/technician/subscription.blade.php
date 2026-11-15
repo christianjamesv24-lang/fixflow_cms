@@ -69,6 +69,7 @@
                     <button class="btn btn-danger-soft" type="submit">Cancel at period end</button>
                 </form>
                 <p class="panel-sub mt-1">Cancellation does not end access immediately. Your plan stays active through the paid period end date.</p>
+                <a class="btn btn-outline-light mt-2" href="<?= e(url('/technician/subscription?extend=1')) ?>">Extend or renew your plan</a>
             <?php endif; ?>
         </div>
     </section>
@@ -113,9 +114,10 @@ $oldPlan = old('plan', $selectedPlan);
 if (is_string($oldPlan) && array_key_exists($oldPlan, $prices)) {
     $selectedPlan = $oldPlan;
 }
+$showPlanSelector = ! $subscription || $subscription->cancel_at_period_end || request()->boolean('extend');
 ?>
 
-<?php if (! $pendingPayment): ?>
+<?php if (! $pendingPayment && $showPlanSelector): ?>
     <section class="panel">
         <div class="panel-head">
             <div>

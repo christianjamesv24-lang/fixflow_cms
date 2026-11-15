@@ -49,7 +49,8 @@ class TechnicianSubscriptionTest extends TestCase
             ->assertOk()
             ->assertSee('₱500.00')
             ->assertSee('₱5,000.00')
-            ->assertSee('09171234567');
+            ->assertSee('09171234567')
+            ->assertSee('Choose a plan');
     }
 
     public function test_technicians_can_register_pay_before_approval_and_get_approved_with_their_subscription(): void
@@ -158,7 +159,14 @@ class TechnicianSubscriptionTest extends TestCase
             ->assertSee('Payment information')
             ->assertSee('₱5,000.00')
             ->assertSee('GCash transfer')
-            ->assertSee('GCASH-REF-1001');
+            ->assertSee('GCASH-REF-1001')
+            ->assertSee('Extend or renew your plan')
+            ->assertDontSee('Renew or extend your plan');
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription?extend=1')
+            ->assertOk()
+            ->assertSee('Renew or extend your plan');
 
         $this->actingAs($admin)
             ->get('/admin/subscriptions')
@@ -195,6 +203,12 @@ class TechnicianSubscriptionTest extends TestCase
 
         $this->actingAs($technician)
             ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Extend or renew your plan')
+            ->assertDontSee('Renew or extend your plan');
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription?extend=1')
             ->assertOk()
             ->assertSee('Renew or extend your plan');
 
@@ -256,6 +270,7 @@ class TechnicianSubscriptionTest extends TestCase
             ->get('/technician/subscription')
             ->assertOk()
             ->assertSee('Your subscription is set to end on')
+            ->assertSee('Renew or extend your plan')
             ->assertDontSee('Cancel at period end');
     }
 
