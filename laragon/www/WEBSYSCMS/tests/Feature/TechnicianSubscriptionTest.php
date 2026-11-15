@@ -161,6 +161,7 @@ class TechnicianSubscriptionTest extends TestCase
             ->assertSee('GCash transfer')
             ->assertSee('GCASH-REF-1001')
             ->assertSee('Extend or renew your plan')
+            ->assertSee('class="btn btn-ghost mt-2"', false)
             ->assertDontSee('Renew or extend your plan');
 
         $this->actingAs($technician)
@@ -231,6 +232,13 @@ class TechnicianSubscriptionTest extends TestCase
             $currentEnd->copy()->addYear()->toDateString(),
             Carbon::parse($renewal->current_period_end)->toDateString()
         );
+
+        $this->actingAs($technician)
+            ->getJson('/notifications/poll?after_id=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Subscription extended')
+            ->assertJsonPath('notifications.0.target_url', url('/technician/subscription'));
     }
 
     public function test_technician_can_cancel_at_period_end_and_keep_access_until_then(): void
@@ -245,6 +253,7 @@ class TechnicianSubscriptionTest extends TestCase
 
         $subscription = DB::table('subscriptions')->where('user_id', $technician->id)->first();
         $periodEnd = $subscription->current_period_end;
+        $lastNotificationId = (int) DB::table('user_notifications')->where('user_id', $technician->id)->max('id');
 
         $this->actingAs($technician)
             ->get('/technician/subscription')
@@ -254,6 +263,13 @@ class TechnicianSubscriptionTest extends TestCase
         $this->actingAs($technician)
             ->post('/technician/subscription/cancel')
             ->assertRedirect('/technician/subscription');
+
+        $this->actingAs($technician)
+            ->getJson('/notifications/poll?after_id='.$lastNotificationId)
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Subscription cancellation scheduled')
+            ->assertJsonPath('notifications.0.target_url', url('/technician/subscription'));
 
         $this->assertDatabaseHas('subscriptions', [
             'id' => $subscription->id,

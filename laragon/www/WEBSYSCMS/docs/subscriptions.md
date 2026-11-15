@@ -10,6 +10,8 @@ When PayMongo is configured, technicians are sent to PayMongo Hosted Checkout to
 
 After approval, the technician subscription page shows the payment amount, method, reference, payment date, and paid-through date. Plan choices stay hidden while an active subscription is in good standing; the technician can reveal them to extend or renew, and they reappear automatically when cancellation is scheduled or the plan expires. Technicians can schedule cancellation at the end of the current paid period; their access remains active until that date, and the payment is not refunded. Subscriptions are currently one-time payments, not automatic recurring charges. A pending renewal must be resolved before cancellation can be scheduled.
 
+Technicians receive notification-bell alerts when an eligible new customer request is posted, a subscription payment or extension is approved, or cancellation is scheduled. A three-day expiration reminder is created by the existing notification polling while the technician is signed in. Available requests show the appliance and issue while keeping the customer's contact details and exact address private until assignment.
+
 To configure PayMongo:
 
 1. Create and verify a PayMongo merchant account. In **Settings → Developers**, copy the secret key into the local or production `.env` as `PAYMONGO_SECRET_KEY`. Never commit or share the key.

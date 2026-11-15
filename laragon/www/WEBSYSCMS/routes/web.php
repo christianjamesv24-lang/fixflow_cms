@@ -83,6 +83,7 @@ Route::middleware('role:technician')->group(function () {
 
 Route::middleware(['role:technician', 'technician.approved', 'subscription'])->group(function () {
     Route::get('/technician', [TechnicianController::class, 'dashboard']);
+    Route::get('/technician/jobs/available', [TechnicianController::class, 'availableJobs']);
     Route::get('/technician/jobs', [TechnicianController::class, 'jobs']);
     Route::get('/technician/jobs/{id}', [TechnicianController::class, 'show'])->whereNumber('id');
     Route::post('/technician/jobs/{id}/accept', [TechnicianController::class, 'accept'])->whereNumber('id');

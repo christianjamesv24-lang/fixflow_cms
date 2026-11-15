@@ -11,6 +11,7 @@ $statusLabels = ['pending' => 'Pending', 'assigned' => 'Assigned', 'accepted' =>
         <p><?= number_format($total) ?> job<?= $total === 1 ? '' : 's' ?> match your filters.</p>
     </div>
     <div class="page-head-actions">
+        <a class="btn btn-primary" href="<?= e(url('/technician/jobs/available')) ?>"><?= icon('search') ?> Available jobs</a>
         <a class="btn btn-ghost" href="<?= e(url('/technician/schedule')) ?>"><?= icon('calendar') ?> Schedule</a>
     </div>
 </div>

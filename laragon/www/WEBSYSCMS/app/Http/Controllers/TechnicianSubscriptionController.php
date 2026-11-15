@@ -105,6 +105,16 @@ class TechnicianSubscriptionController extends Controller
                     'updated_at' => now(),
                 ]);
 
+            DB::table('user_notifications')->insert([
+                'user_id' => auth()->id(),
+                'title' => 'Subscription cancellation scheduled',
+                'body' => 'Your subscription will end at the end of the current paid period. You can keep using technician features until then.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/technician/subscription'),
+                'created_at' => now(),
+            ]);
+
             return 'scheduled';
         });
 

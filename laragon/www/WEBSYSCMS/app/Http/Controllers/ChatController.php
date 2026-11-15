@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class ChatController extends Controller
@@ -50,6 +51,10 @@ class ChatController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
+        if ($user->role === 'technician') {
+            $this->notifySubscriptionExpiring((int) $user->id);
+        }
+
         $afterId = max(0, (int) $request->query('after_id', 0));
         $notifications = db_all(
             'SELECT id, title, body, type, target_url, created_at FROM user_notifications
@@ -65,6 +70,50 @@ class ChatController extends Controller
                 [$user->id]
             ),
         ])->header('Cache-Control', 'private, no-store');
+    }
+
+    private function notifySubscriptionExpiring(int $userId): void
+    {
+        DB::transaction(function () use ($userId): void {
+            $subscription = DB::table('subscriptions')
+                ->where('user_id', $userId)
+                ->where('status', 'active')
+                ->orderByDesc('current_period_end')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $subscription || ! $subscription->current_period_end || $subscription->expiring_notification_sent_at) {
+                return;
+            }
+
+            $now = now();
+            $periodEnd = Carbon::parse($subscription->current_period_end);
+            if ($periodEnd->lessThanOrEqualTo($now) || $periodEnd->greaterThan($now->copy()->addDays(3))) {
+                return;
+            }
+
+            $updated = DB::table('subscriptions')
+                ->where('id', $subscription->id)
+                ->whereNull('expiring_notification_sent_at')
+                ->update([
+                    'expiring_notification_sent_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+            if ($updated === 0) {
+                return;
+            }
+
+            DB::table('user_notifications')->insert([
+                'user_id' => $userId,
+                'title' => 'Subscription ending soon',
+                'body' => 'Your technician subscription ends on '.$periodEnd->format('M j, Y g:i A').'. Extend it before then to keep technician access.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/technician/subscription'),
+                'created_at' => $now,
+            ]);
+        });
     }
 
     public function messages(Request $request): JsonResponse

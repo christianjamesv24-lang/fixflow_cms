@@ -69,7 +69,7 @@
                     <button class="btn btn-danger-soft" type="submit">Cancel at period end</button>
                 </form>
                 <p class="panel-sub mt-1">Cancellation does not end access immediately. Your plan stays active through the paid period end date.</p>
-                <a class="btn btn-outline-light mt-2" href="<?= e(url('/technician/subscription?extend=1')) ?>">Extend or renew your plan</a>
+                <a class="btn btn-ghost mt-2" href="<?= e(url('/technician/subscription?extend=1')) ?>">Extend or renew your plan</a>
             <?php endif; ?>
         </div>
     </section>

@@ -127,6 +127,53 @@ class TechnicianController extends Controller
         ]);
     }
 
+    public function availableJobs()
+    {
+        $search = trim((string) request()->query('q', ''));
+        $page = (int) request()->query('page', 1);
+        $perPage = 10;
+
+        $where = ["r.status = 'pending'", 'r.technician_id IS NULL'];
+        $params = [];
+
+        if ($search !== '') {
+            $where[] = '(r.ticket_no LIKE ? OR r.title LIKE ? OR r.description LIKE ? OR c.name LIKE ?)';
+            $like = '%'.$search.'%';
+            array_push($params, $like, $like, $like, $like);
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $total = (int) db_value(
+            "SELECT COUNT(*) FROM service_requests r
+             JOIN service_categories c ON c.id = r.category_id
+             WHERE $whereSql",
+            $params
+        );
+
+        $pagination = $this->paginate($total, $perPage, $page);
+        $jobs = db_all(
+            "SELECT r.id, r.ticket_no, r.service_type, r.title, r.description, r.brand, r.model,
+                    r.priority, r.preferred_date, r.preferred_time, r.created_at,
+                    c.name AS category_name, c.icon AS category_icon
+             FROM service_requests r
+             JOIN service_categories c ON c.id = r.category_id
+             WHERE $whereSql
+             ORDER BY CASE r.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+                      r.created_at DESC
+             LIMIT {$perPage} OFFSET {$pagination['offset']}",
+            $params
+        );
+
+        return view('technician.available-jobs', [
+            'title' => 'Available jobs',
+            'jobs' => $jobs,
+            'search' => $search,
+            'currentPage' => $pagination['page'],
+            'totalPages' => $pagination['pages'],
+            'total' => $total,
+        ]);
+    }
+
     public function show(int $id)
     {
         $user = $this->authUser();

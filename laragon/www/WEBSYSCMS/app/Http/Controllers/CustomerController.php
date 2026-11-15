@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\DB;
+
 class CustomerController extends Controller
 {
     public function dashboard()
@@ -213,35 +215,66 @@ class CustomerController extends Controller
         }
 
         $ticket = generate_ticket_no();
-        $requestId = db_insert(
-            'INSERT INTO service_requests
-                (ticket_no, customer_id, category_id, service_type, title, description, brand, model, serial_no, address, latitude, longitude, location_accuracy, priority, preferred_date, preferred_time, status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
-            [
-                $ticket,
-                $user->id,
-                $data['category_id'],
-                $data['service_type'],
-                $data['title'],
-                $data['description'],
-                $data['brand'] ?: null,
-                $data['model'] ?: null,
-                $data['serial_no'] ?: null,
-                $data['address'],
-                $data['latitude'] !== '' ? (float) $data['latitude'] : null,
-                $data['longitude'] !== '' ? (float) $data['longitude'] : null,
-                $data['location_accuracy'] !== '' ? (float) $data['location_accuracy'] : null,
-                $data['priority'],
-                $data['preferred_date'] ?: null,
-                $data['preferred_time'] ?: null,
-                'pending',
-            ]
-        );
+        $requestId = DB::transaction(function () use ($ticket, $user, $data) {
+            $createdAt = now();
+            $requestId = DB::table('service_requests')->insertGetId([
+                'ticket_no' => $ticket,
+                'customer_id' => $user->id,
+                'category_id' => $data['category_id'],
+                'service_type' => $data['service_type'],
+                'title' => $data['title'],
+                'description' => $data['description'],
+                'brand' => $data['brand'] ?: null,
+                'model' => $data['model'] ?: null,
+                'serial_no' => $data['serial_no'] ?: null,
+                'address' => $data['address'],
+                'latitude' => $data['latitude'] !== '' ? (float) $data['latitude'] : null,
+                'longitude' => $data['longitude'] !== '' ? (float) $data['longitude'] : null,
+                'location_accuracy' => $data['location_accuracy'] !== '' ? (float) $data['location_accuracy'] : null,
+                'priority' => $data['priority'],
+                'preferred_date' => $data['preferred_date'] ?: null,
+                'preferred_time' => $data['preferred_time'] ?: null,
+                'status' => 'pending',
+                'created_at' => $createdAt,
+                'updated_at' => $createdAt,
+            ]);
 
-        db_insert(
-            'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
-            [$requestId, 'pending', 'Service request submitted by the customer.', $user->id]
-        );
+            DB::table('request_status_history')->insert([
+                'request_id' => $requestId,
+                'status' => 'pending',
+                'note' => 'Service request submitted by the customer.',
+                'changed_by' => $user->id,
+                'created_at' => $createdAt,
+            ]);
+
+            $technicianIds = DB::table('users as u')
+                ->where('u.role', 'technician')
+                ->whereNotNull('u.technician_approved_at')
+                ->whereExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('subscriptions')
+                        ->whereColumn('subscriptions.user_id', 'u.id')
+                        ->where('subscriptions.status', 'active')
+                        ->where('subscriptions.current_period_end', '>', now());
+                })
+                ->pluck('u.id');
+
+            $notifications = $technicianIds->map(static fn ($technicianId) => [
+                'user_id' => $technicianId,
+                'title' => 'New customer request available',
+                'body' => 'A new service request is ready to review in Available jobs.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/technician/jobs/available'),
+                'created_at' => $createdAt,
+            ])->all();
+
+            if ($notifications) {
+                DB::table('user_notifications')->insert($notifications);
+            }
+
+            return $requestId;
+        });
 
         $this->log('create_request', 'Submitted service request '.$ticket);
         $this->flash('success', 'Request submitted. Your ticket number is '.$ticket.'. We will assign a technician shortly.');

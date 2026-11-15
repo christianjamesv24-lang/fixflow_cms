@@ -62,6 +62,32 @@ class ChatNotificationTest extends TestCase
             ->assertJsonPath('notification_count', 0);
     }
 
+    public function test_technicians_receive_a_single_notification_when_their_subscription_is_near_expiry(): void
+    {
+        $technician = $this->createUser('technician');
+        DB::table('subscriptions')
+            ->where('user_id', $technician->id)
+            ->update(['current_period_end' => now()->addDays(2)]);
+
+        $this->actingAs($technician)
+            ->getJson('/notifications/poll?after_id=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Subscription ending soon')
+            ->assertJsonPath('notifications.0.target_url', url('/technician/subscription'));
+
+        $notificationId = (int) DB::table('user_notifications')->where('user_id', $technician->id)->value('id');
+        $this->actingAs($technician)
+            ->getJson('/notifications/poll?after_id='.$notificationId)
+            ->assertOk()
+            ->assertJsonCount(0, 'notifications');
+
+        $this->assertDatabaseCount('user_notifications', 1);
+        $this->assertNotNull(
+            DB::table('subscriptions')->where('user_id', $technician->id)->value('expiring_notification_sent_at')
+        );
+    }
+
     public function test_guests_cannot_poll_user_notifications(): void
     {
         $this->getJson('/notifications/poll')
@@ -88,6 +114,28 @@ class ChatNotificationTest extends TestCase
             ->assertSee('data-notification-url=', false)
             ->assertSee('1 unread notifications', false)
             ->assertSee('class="nav-count" data-notification-count>1</span>', false);
+    }
+
+    public function test_technician_portal_renders_the_live_notification_bell(): void
+    {
+        $technician = $this->createUser('technician');
+
+        DB::table('user_notifications')->insert([
+            'user_id' => $technician->id,
+            'title' => 'New customer request available',
+            'body' => 'A new service request is ready to review.',
+            'type' => 'info',
+            'is_read' => false,
+            'target_url' => url('/technician/jobs/available'),
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($technician)
+            ->get('/technician/jobs/available')
+            ->assertOk()
+            ->assertSee('data-notification-poll', false)
+            ->assertSee('data-notification-url=', false)
+            ->assertSee('1 unread notifications', false);
     }
 
     private function createUser(string $role): User

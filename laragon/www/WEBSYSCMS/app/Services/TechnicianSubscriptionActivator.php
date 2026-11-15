@@ -93,13 +93,27 @@ class TechnicianSubscriptionActivator
                 'updated_at' => now(),
             ]);
 
+            if ($technician->technician_approved_at === null) {
+                $notificationTitle = 'Technician account approved';
+                $notificationBody = 'Your technician account and subscription have been approved. You can now access technician features.';
+                $targetUrl = url('/technician');
+            } elseif ($existingEnd) {
+                $notificationTitle = 'Subscription extended';
+                $notificationBody = 'Your '.ucfirst($subscription->plan).' subscription is extended through '.$periodEnd->format('M j, Y g:i A').'.';
+                $targetUrl = url('/technician/subscription');
+            } else {
+                $notificationTitle = 'Subscription payment approved';
+                $notificationBody = 'Your '.ucfirst($subscription->plan).' subscription payment is approved and access is active through '.$periodEnd->format('M j, Y g:i A').'.';
+                $targetUrl = url('/technician/subscription');
+            }
+
             DB::table('user_notifications')->insert([
                 'user_id' => $technician->id,
-                'title' => 'Technician account approved',
-                'body' => 'Your technician account and subscription have been approved. You can now access technician features.',
+                'title' => $notificationTitle,
+                'body' => $notificationBody,
                 'type' => 'info',
                 'is_read' => false,
-                'target_url' => url('/technician'),
+                'target_url' => $targetUrl,
                 'created_at' => now(),
             ]);
 
