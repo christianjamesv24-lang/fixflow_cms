@@ -34,6 +34,11 @@ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
     php artisan migrate --force
 fi
 
+if [ "${ADMIN_BOOTSTRAP_ONCE:-false}" = "true" ]; then
+    php artisan admin:bootstrap-from-env
+    unset ADMIN_BOOTSTRAP_ONCE ADMIN_BOOTSTRAP_EMAIL ADMIN_BOOTSTRAP_PASSWORD
+fi
+
 port="${PORT:-80}"
 sed -i "s/^Listen 80$/Listen ${port}/" /etc/apache2/ports.conf
 sed -i "s/<VirtualHost \\*:80>/<VirtualHost *:${port}>/" /etc/apache2/sites-enabled/000-default.conf
