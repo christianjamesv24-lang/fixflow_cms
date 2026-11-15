@@ -43,6 +43,7 @@ return [
 
     'payments' => [
         'demo_mode' => env('SUBSCRIPTION_DEMO_MODE', env('APP_ENV') === 'local'),
+        'allow_production_demo' => env('SUBSCRIPTION_DEMO_ALLOW_PRODUCTION', false),
         'vercel_environment' => env('VERCEL_ENV'),
     ],
 

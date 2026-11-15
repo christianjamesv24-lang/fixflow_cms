@@ -1,7 +1,8 @@
 <?php
 $siteLogo = (string) setting('site_logo', '');
 
-if (preg_match('/\Auploads\/branding\/[a-f0-9]{32}\.(?:jpe?g|png|webp)\z/i', $siteLogo) !== 1) {
+if (preg_match('/\Auploads\/branding\/[a-f0-9]{32}\.(?:jpe?g|png|webp)\z/i', $siteLogo) !== 1
+    || ! is_file(public_path($siteLogo))) {
     $siteLogo = '';
 }
 ?>

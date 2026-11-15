@@ -30,6 +30,7 @@ class TechnicianSubscriptionTest extends TestCase
             'services.paymongo.secret_key' => null,
             'services.paymongo.webhook_secret' => null,
             'services.payments.demo_mode' => false,
+            'services.payments.allow_production_demo' => false,
             'services.payments.vercel_environment' => null,
         ]);
         Storage::fake('subscription_proofs');
@@ -359,7 +360,7 @@ class TechnicianSubscriptionTest extends TestCase
         $this->assertDatabaseHas('subscriptions', ['id' => $payment->subscription_id, 'status' => 'pending']);
     }
 
-    public function test_demo_checkout_can_be_enabled_for_a_vercel_preview_but_not_production(): void
+    public function test_demo_checkout_can_be_enabled_for_a_vercel_preview(): void
     {
         config([
             'services.payments.demo_mode' => true,
@@ -377,6 +378,38 @@ class TechnicianSubscriptionTest extends TestCase
         $this->app->detectEnvironment(fn () => 'testing');
 
         $this->assertDatabaseHas('subscription_payments', ['id' => $payment->id, 'status' => 'approved']);
+    }
+
+    public function test_demo_checkout_can_be_explicitly_enabled_in_production_for_a_presentation(): void
+    {
+        config([
+            'services.payments.demo_mode' => true,
+            'services.payments.allow_production_demo' => true,
+        ]);
+        $this->app->detectEnvironment(fn () => 'production');
+        $technician = $this->createUser('technician');
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Demo mode')
+            ->assertSee('No real GCash payment will happen');
+
+        $this->app->detectEnvironment(fn () => 'testing');
+        $checkoutResponse = $this->actingAs($technician)
+            ->post('/technician/subscription/checkout', ['plan' => 'monthly']);
+        $paymentId = (int) DB::table('subscription_payments')->value('id');
+        $checkoutResponse->assertRedirect('/technician/subscription/demo/'.$paymentId);
+
+        $this->app->detectEnvironment(fn () => 'production');
+        $this->assertTrue($this->app->make(TechnicianSubscriptionActivator::class)->approveFromDemo($paymentId));
+
+        $this->app->detectEnvironment(fn () => 'testing');
+        $this->assertDatabaseHas('subscription_payments', [
+            'id' => $paymentId,
+            'payment_provider' => 'demo',
+            'status' => 'approved',
+        ]);
     }
 
     public function test_technician_can_start_a_paymongo_gcash_checkout_for_the_selected_plan(): void

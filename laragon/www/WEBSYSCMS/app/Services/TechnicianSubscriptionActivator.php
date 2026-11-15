@@ -21,7 +21,9 @@ class TechnicianSubscriptionActivator
     {
         if (! config('services.payments.demo_mode')
             || (! app()->environment(['local', 'testing'])
-                && config('services.payments.vercel_environment') !== 'preview')) {
+                && config('services.payments.vercel_environment') !== 'preview'
+                && (! app()->environment('production')
+                    || ! config('services.payments.allow_production_demo')))) {
             return false;
         }
 

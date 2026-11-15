@@ -2,7 +2,9 @@
 
 Technician plans are PHP 500 monthly or PHP 5,000 yearly by default. Prices can be changed with `TECHNICIAN_SUBSCRIPTION_MONTHLY_PRICE` and `TECHNICIAN_SUBSCRIPTION_YEARLY_PRICE`.
 
-Technicians register their own account and choose a monthly or yearly plan. In local development, the app defaults to a clearly labeled demo checkout so a student project can demonstrate the subscription flow without a merchant account. Simulated payments are allowed in local/testing, or in a Vercel Preview deployment when explicitly enabled with `SUBSCRIPTION_DEMO_MODE=true`; they do not contact GCash or move money. Never enable the demo in Production.
+Technicians register their own account and choose a monthly or yearly plan. In local development, the app defaults to a clearly labeled demo checkout so a student project can demonstrate the subscription flow without a merchant account. Simulated payments do not contact GCash or move money.
+
+For a presentation deployment on Render or another production host, set both `SUBSCRIPTION_DEMO_MODE=true` and `SUBSCRIPTION_DEMO_ALLOW_PRODUCTION=true`. This is an explicit opt-in that allows simulated checkouts to activate demo subscriptions in production. The checkout is labeled as a simulation. Use this only for a presentation-only deployment with no real payment processing; turn both settings off after the presentation. On Vercel Preview, only `SUBSCRIPTION_DEMO_MODE=true` is needed.
 
 When PayMongo is configured, technicians are sent to PayMongo Hosted Checkout to pay by GCash. The app activates the subscription and approves the technician account only after receiving a valid `checkout_session.payment.paid` webhook; returning to the site after checkout is not proof of payment. PayMongo payments cannot be manually approved or rejected in the admin panel.
 
