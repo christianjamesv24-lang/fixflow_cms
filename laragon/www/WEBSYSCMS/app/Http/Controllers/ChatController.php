@@ -52,7 +52,7 @@ class ChatController extends Controller
 
         $afterId = max(0, (int) $request->query('after_id', 0));
         $notifications = db_all(
-            'SELECT id, title, body, type, created_at FROM user_notifications
+            'SELECT id, title, body, type, target_url, created_at FROM user_notifications
              WHERE user_id = ? AND is_read = 0 AND id > ?
              ORDER BY id ASC LIMIT 20',
             [$user->id, $afterId]

@@ -65,10 +65,11 @@
             var title = document.createElement('strong');
             var link = document.createElement('a');
             var close = document.createElement('button');
+            var targetUrl = notification.target_url || notificationTarget;
 
             toast.className = 'toast toast-info notification-toast';
             title.textContent = notification.title || 'New notification';
-            link.href = notificationTarget;
+            link.href = targetUrl;
             link.appendChild(title);
             link.appendChild(document.createElement('br'));
             link.appendChild(document.createTextNode(notification.body || ''));
@@ -93,7 +94,7 @@
 
                 browserNotification.onclick = function () {
                     window.focus();
-                    window.location.href = notificationTarget;
+                    window.location.href = targetUrl;
                 };
             }
         }

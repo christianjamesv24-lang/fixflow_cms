@@ -108,7 +108,9 @@ $footerServices = db_all("SELECT name, slug FROM service_categories WHERE status
         <div class="footer-col">
             <h3>Service hours</h3>
             <p class="footer-hours"><?= e(setting('business_hours')) ?></p>
-            <p class="footer-muted"><?= e(setting('support_hours')) ?></p>
+            <?php if (setting('support_hours') !== '' && setting('support_hours') !== setting('business_hours')): ?>
+                <p class="footer-muted"><?= e(setting('support_hours')) ?></p>
+            <?php endif; ?>
             <p class="footer-address"><?= icon('pin') ?> <?= e(setting('contact_address')) ?></p>
             <?php if (empty($currentUser)): ?>
                 <a class="btn btn-primary btn-sm footer-cta" href="<?= e(url('/register')) ?>">Create an account</a>

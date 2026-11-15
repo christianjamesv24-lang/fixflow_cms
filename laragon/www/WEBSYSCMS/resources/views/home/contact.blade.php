@@ -33,7 +33,7 @@
                 <div>
                     <h3>Service area</h3>
                     <p><?= e(setting('contact_address')) ?></p>
-                    <small>Serving nearby cities across Metro Manila.</small>
+                    <small>Serving Naujan and nearby areas in Oriental Mindoro.</small>
                 </div>
             </div>
 

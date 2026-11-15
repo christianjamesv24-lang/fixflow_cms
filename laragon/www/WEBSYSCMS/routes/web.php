@@ -35,9 +35,10 @@ Route::get('/register', [AuthController::class, 'showRegister']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout']);
 
+Route::middleware('role:admin,technician')->get('/notifications/poll', [ChatController::class, 'notifications']);
+
 Route::middleware(['role:admin,technician', 'technician.approved', 'subscription'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index']);
-    Route::get('/notifications/poll', [ChatController::class, 'notifications']);
     Route::get('/chat/messages', [ChatController::class, 'messages']);
     Route::post('/chat/messages', [ChatController::class, 'send']);
     Route::post('/chat/mark-read', [ChatController::class, 'markRead']);

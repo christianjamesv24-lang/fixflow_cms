@@ -31,7 +31,9 @@
                 <span class="feature-icon"><?= icon('clock') ?></span>
                 <h3>Service hours</h3>
                 <p><?= e(setting('business_hours')) ?></p>
-                <small><?= e(setting('support_hours')) ?></small>
+                <?php if (setting('support_hours') !== '' && setting('support_hours') !== setting('business_hours')): ?>
+                    <small><?= e(setting('support_hours')) ?></small>
+                <?php endif; ?>
             </div>
             <div class="about-card">
                 <span class="feature-icon"><?= icon('phone') ?></span>

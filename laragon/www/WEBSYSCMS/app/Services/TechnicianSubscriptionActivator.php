@@ -93,6 +93,16 @@ class TechnicianSubscriptionActivator
                 'updated_at' => now(),
             ]);
 
+            DB::table('user_notifications')->insert([
+                'user_id' => $technician->id,
+                'title' => 'Technician account approved',
+                'body' => 'Your technician account and subscription have been approved. You can now access technician features.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/technician'),
+                'created_at' => now(),
+            ]);
+
             return true;
         });
     }

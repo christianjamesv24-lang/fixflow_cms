@@ -96,6 +96,12 @@ class TechnicianSubscriptionTest extends TestCase
             'user_id' => $technician->id,
             'status' => 'active',
         ]);
+        $this->actingAs($technician)
+            ->getJson('/notifications/poll?after_id=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Technician account approved')
+            ->assertJsonPath('notifications.0.target_url', url('/technician'));
 
         $this->actingAs($technician)
             ->get('/technician/schedule')
@@ -210,6 +216,7 @@ class TechnicianSubscriptionTest extends TestCase
         $admin = $this->createUser('admin');
         $firstTechnician = $this->createUser('technician');
         $secondTechnician = $this->createUser('technician', 'another-technician@example.com');
+        DB::table('users')->where('id', $firstTechnician->id)->update(['technician_approved_at' => null]);
         $paymentId = $this->submitPayment($firstTechnician, 'GCASH-REF-2002');
 
         $this->actingAs($secondTechnician)
@@ -235,6 +242,12 @@ class TechnicianSubscriptionTest extends TestCase
             'user_id' => $firstTechnician->id,
             'status' => 'rejected',
         ]);
+        $this->actingAs($firstTechnician)
+            ->getJson('/notifications/poll?after_id=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Subscription payment rejected')
+            ->assertJsonPath('notifications.0.target_url', url('/technician/subscription'));
     }
 
     public function test_seed_does_not_delete_users_or_create_default_accounts(): void
@@ -330,6 +343,11 @@ class TechnicianSubscriptionTest extends TestCase
             'user_id' => $technician->id,
             'plan' => 'yearly',
             'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $technician->id,
+            'title' => 'Technician account approved',
+            'target_url' => url('/technician'),
         ]);
     }
 

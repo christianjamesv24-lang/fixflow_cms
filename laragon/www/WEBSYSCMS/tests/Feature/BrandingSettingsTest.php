@@ -106,6 +106,21 @@ class BrandingSettingsTest extends TestCase
             ->assertSee('--accent: #45def0');
     }
 
+    public function test_public_pages_show_the_updated_contact_details_and_service_hours(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('0926 701 4324')
+            ->assertSee('fixflow.cms@gmail.com')
+            ->assertSee('Pagkakaisa, Naujan, Oriental Mindoro')
+            ->assertSee('Daily: 8:00 AM - 8:00 PM');
+
+        $this->get('/contact')
+            ->assertOk()
+            ->assertSee('Serving Naujan and nearby areas in Oriental Mindoro.')
+            ->assertDontSee('Metro Manila');
+    }
+
     private function createAdmin(): User
     {
         $id = DB::table('users')->insertGetId([

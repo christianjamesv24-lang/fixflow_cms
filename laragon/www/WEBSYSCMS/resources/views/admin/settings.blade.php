@@ -92,7 +92,7 @@ $siteLogo = setting('site_logo', '');
             </div>
             <div class="field">
                 <label for="business_hours">Business hours</label>
-                <input type="text" id="business_hours" name="business_hours" value="<?= e(setting('business_hours', 'Mon - Sat: 8:00 AM - 6:00 PM')) ?>">
+                <input type="text" id="business_hours" name="business_hours" value="<?= e(setting('business_hours', 'Daily: 8:00 AM - 8:00 PM')) ?>">
             </div>
         </div>
 
@@ -106,18 +106,18 @@ $siteLogo = setting('site_logo', '');
         <div class="form-row">
             <div class="field">
                 <label for="contact_email">Contact email *</label>
-                <input type="email" id="contact_email" name="contact_email" value="<?= e(setting('contact_email', 'support@fixflow.test')) ?>" class="<?= isset($errors['contact_email']) ? 'is-invalid' : '' ?>" required>
+                <input type="email" id="contact_email" name="contact_email" value="<?= e(setting('contact_email', 'fixflow.cms@gmail.com')) ?>" class="<?= isset($errors['contact_email']) ? 'is-invalid' : '' ?>" required>
                 <?php if (isset($errors['contact_email'])): ?><span class="field-error"><?= e($errors['contact_email']) ?></span><?php endif; ?>
             </div>
             <div class="field">
                 <label for="contact_phone">Phone number</label>
-                <input type="text" id="contact_phone" name="contact_phone" value="<?= e(setting('contact_phone', '+63 2 1234 5678')) ?>">
+                <input type="text" id="contact_phone" name="contact_phone" value="<?= e(setting('contact_phone', '0926 701 4324')) ?>">
             </div>
         </div>
 
         <div class="field">
             <label for="contact_address">Address</label>
-            <input type="text" id="contact_address" name="contact_address" value="<?= e(setting('contact_address', 'Mindoro State Main Campus, Alcate, Victoria, Oriental Mindoro')) ?>">
+            <input type="text" id="contact_address" name="contact_address" value="<?= e(setting('contact_address', 'Pagkakaisa, Naujan, Oriental Mindoro')) ?>">
         </div>
 
         <div class="field">

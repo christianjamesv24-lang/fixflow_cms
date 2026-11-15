@@ -97,6 +97,16 @@ class AdminSubscriptionController extends Controller
                 ->where('status', 'pending')
                 ->update(['status' => 'rejected', 'updated_at' => now()]);
 
+            DB::table('user_notifications')->insert([
+                'user_id' => $payment->user_id,
+                'title' => 'Subscription payment rejected',
+                'body' => 'Your subscription payment was rejected. Please review the payment details and contact an administrator if you need help.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/technician/subscription'),
+                'created_at' => now(),
+            ]);
+
             return true;
         });
 
