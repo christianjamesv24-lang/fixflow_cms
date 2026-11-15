@@ -73,6 +73,7 @@ Route::middleware('role:customer,technician')->group(function () {
 
 Route::middleware('role:technician')->group(function () {
     Route::get('/technician/subscription', [TechnicianSubscriptionController::class, 'show']);
+    Route::post('/technician/subscription/cancel', [TechnicianSubscriptionController::class, 'cancel']);
     Route::post('/technician/subscription/checkout', [TechnicianSubscriptionController::class, 'startPayMongoCheckout']);
     Route::get('/technician/subscription/demo/{paymentId}', [TechnicianSubscriptionController::class, 'showDemoCheckout'])->whereNumber('paymentId');
     Route::post('/technician/subscription/demo/{paymentId}/complete', [TechnicianSubscriptionController::class, 'completeDemoCheckout'])->whereNumber('paymentId');

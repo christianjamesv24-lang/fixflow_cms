@@ -152,6 +152,14 @@ class TechnicianSubscriptionTest extends TestCase
             ->get('/technician/schedule')
             ->assertOk();
 
+        $this->actingAs($technician)
+            ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Payment information')
+            ->assertSee('₱5,000.00')
+            ->assertSee('GCash transfer')
+            ->assertSee('GCASH-REF-1001');
+
         $this->actingAs($admin)
             ->get('/admin/subscriptions')
             ->assertOk()
@@ -209,6 +217,74 @@ class TechnicianSubscriptionTest extends TestCase
             $currentEnd->copy()->addYear()->toDateString(),
             Carbon::parse($renewal->current_period_end)->toDateString()
         );
+    }
+
+    public function test_technician_can_cancel_at_period_end_and_keep_access_until_then(): void
+    {
+        $admin = $this->createUser('admin');
+        $technician = $this->createUser('technician');
+        $paymentId = $this->submitPayment($technician, 'GCASH-REF-CANCEL-1001');
+
+        $this->actingAs($admin)
+            ->post('/admin/subscriptions/'.$paymentId.'/approve')
+            ->assertRedirect('/admin/subscriptions');
+
+        $subscription = DB::table('subscriptions')->where('user_id', $technician->id)->first();
+        $periodEnd = $subscription->current_period_end;
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Cancel at period end');
+
+        $this->actingAs($technician)
+            ->post('/technician/subscription/cancel')
+            ->assertRedirect('/technician/subscription');
+
+        $this->assertDatabaseHas('subscriptions', [
+            'id' => $subscription->id,
+            'status' => 'active',
+            'cancel_at_period_end' => true,
+            'current_period_end' => $periodEnd,
+        ]);
+
+        $this->actingAs($technician)
+            ->get('/technician/schedule')
+            ->assertOk();
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Your subscription is set to end on')
+            ->assertDontSee('Cancel at period end');
+    }
+
+    public function test_cancellation_is_not_scheduled_while_a_renewal_payment_is_pending(): void
+    {
+        $admin = $this->createUser('admin');
+        $technician = $this->createUser('technician');
+        $firstPaymentId = $this->submitPayment($technician, 'GCASH-REF-CANCEL-2002');
+
+        $this->actingAs($admin)
+            ->post('/admin/subscriptions/'.$firstPaymentId.'/approve')
+            ->assertRedirect('/admin/subscriptions');
+
+        $this->submitPayment($technician, 'GCASH-REF-CANCEL-2003', 'yearly');
+
+        $this->actingAs($technician)
+            ->post('/technician/subscription/cancel')
+            ->assertRedirect('/technician/subscription');
+
+        $this->assertDatabaseHas('subscriptions', [
+            'user_id' => $technician->id,
+            'status' => 'active',
+            'cancel_at_period_end' => false,
+        ]);
+
+        $this->actingAs($technician)
+            ->get('/technician/subscription')
+            ->assertOk()
+            ->assertSee('Resolve it before scheduling cancellation');
     }
 
     public function test_payment_reference_cannot_be_submitted_twice_and_admin_can_reject_pending_payment(): void

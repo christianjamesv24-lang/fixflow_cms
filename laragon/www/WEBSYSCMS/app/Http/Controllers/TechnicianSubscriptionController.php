@@ -28,6 +28,15 @@ class TechnicianSubscriptionController extends Controller
             ->orderByDesc('current_period_end')
             ->first();
 
+        $approvedPayment = $subscription
+            ? DB::table('subscription_payments')
+                ->where('subscription_id', $subscription->id)
+                ->where('status', 'approved')
+                ->orderByDesc('paid_at')
+                ->orderByDesc('id')
+                ->first()
+            : null;
+
         $pendingPayment = DB::table('subscription_payments')
             ->join('subscriptions', 'subscriptions.id', '=', 'subscription_payments.subscription_id')
             ->where('subscription_payments.user_id', $userId)
@@ -46,6 +55,7 @@ class TechnicianSubscriptionController extends Controller
         return view('technician.subscription', [
             'title' => 'Technician subscription',
             'subscription' => $subscription,
+            'approvedPayment' => $approvedPayment,
             'pendingPayment' => $pendingPayment,
             'latestPayment' => $latestPayment,
             'prices' => config('subscriptions.prices'),
@@ -56,6 +66,59 @@ class TechnicianSubscriptionController extends Controller
             'paymongoReady' => filled(config('services.paymongo.secret_key'))
                 && filled(config('services.paymongo.webhook_secret')),
         ]);
+    }
+
+    public function cancel()
+    {
+        $result = DB::transaction(function () {
+            DB::table('users')->where('id', auth()->id())->lockForUpdate()->first();
+
+            $subscription = DB::table('subscriptions')
+                ->where('user_id', auth()->id())
+                ->where('status', 'active')
+                ->where('current_period_end', '>', now())
+                ->orderByDesc('current_period_end')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $subscription) {
+                return 'inactive';
+            }
+
+            if ($subscription->cancel_at_period_end) {
+                return 'already_scheduled';
+            }
+
+            $hasPendingPayment = DB::table('subscription_payments')
+                ->where('user_id', auth()->id())
+                ->where('status', 'pending')
+                ->exists();
+
+            if ($hasPendingPayment) {
+                return 'payment_pending';
+            }
+
+            DB::table('subscriptions')
+                ->where('id', $subscription->id)
+                ->update([
+                    'cancel_at_period_end' => true,
+                    'updated_at' => now(),
+                ]);
+
+            return 'scheduled';
+        });
+
+        if ($result === 'scheduled') {
+            $this->flash('success', 'Your subscription is set to end when the current paid period expires. You will keep technician access until then.');
+        } elseif ($result === 'already_scheduled') {
+            $this->flash('info', 'Your subscription is already set to end at the end of its paid period.');
+        } elseif ($result === 'payment_pending') {
+            $this->flash('warning', 'Resolve your pending renewal payment before scheduling cancellation.');
+        } else {
+            $this->flash('warning', 'There is no active subscription to cancel.');
+        }
+
+        return redirect('/technician/subscription');
     }
 
     public function startPayMongoCheckout()

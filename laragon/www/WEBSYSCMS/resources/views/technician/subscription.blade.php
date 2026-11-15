@@ -35,6 +35,41 @@
         </div>
         <div class="panel-body">
             <p>Your technician work pages are available while this subscription is active.</p>
+            <h3 class="panel-title mt-2">Payment information</h3>
+            <?php if ($approvedPayment): ?>
+                <?php
+                $paymentMethod = match ($approvedPayment->payment_provider) {
+                    'demo' => 'Demo checkout (simulated)',
+                    'paymongo' => 'GCash via PayMongo',
+                    default => 'Manual GCash transfer',
+                };
+                $paidAt = $approvedPayment->paid_at ?? $approvedPayment->reviewed_at ?? $approvedPayment->created_at;
+                ?>
+                <p><strong>Amount paid:</strong> <?= e(money($subscription->amount)) ?></p>
+                <p><strong>Payment method:</strong> <?= e($paymentMethod) ?></p>
+                <p><strong>Payment reference:</strong> <?= e($approvedPayment->gcash_reference ?: 'Not available') ?></p>
+                <p><strong>Paid on:</strong> <?= e(format_datetime($paidAt)) ?></p>
+            <?php else: ?>
+                <p>Payment details are unavailable for this subscription.</p>
+            <?php endif; ?>
+
+            <?php if ($subscription->cancel_at_period_end): ?>
+                <div class="note-box mt-2">
+                    <?= icon('info') ?>
+                    <p>Your subscription is set to end on <strong><?= e(format_datetime($subscription->current_period_end)) ?></strong>. Your technician access remains available until then. The payment already made is not refunded.</p>
+                </div>
+            <?php elseif ($pendingPayment): ?>
+                <div class="note-box mt-2">
+                    <?= icon('info') ?>
+                    <p>A renewal payment is pending. Resolve it before scheduling cancellation so it does not extend your paid period.</p>
+                </div>
+            <?php else: ?>
+                <form method="post" action="<?= e(url('/technician/subscription/cancel')) ?>" class="mt-2">
+                    <?= csrf_field() ?>
+                    <button class="btn btn-danger-soft" type="submit">Cancel at period end</button>
+                </form>
+                <p class="panel-sub mt-1">Cancellation does not end access immediately. Your plan stays active through the paid period end date.</p>
+            <?php endif; ?>
         </div>
     </section>
 <?php endif; ?>
