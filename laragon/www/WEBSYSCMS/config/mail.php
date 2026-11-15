@@ -31,7 +31,7 @@ return [
     |
     | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
     |            "postmark", "resend", "log", "array",
-    |            "failover", "roundrobin"
+    |            "failover", "roundrobin", "gmail-api"
     |
     */
 
@@ -63,6 +63,13 @@ return [
 
         'resend' => [
             'transport' => 'resend',
+        ],
+
+        'gmail-api' => [
+            'transport' => 'gmail-api',
+            'client_id' => env('GMAIL_OAUTH_CLIENT_ID'),
+            'client_secret' => env('GMAIL_OAUTH_CLIENT_SECRET'),
+            'refresh_token' => env('GMAIL_OAUTH_REFRESH_TOKEN'),
         ],
 
         'sendmail' => [
