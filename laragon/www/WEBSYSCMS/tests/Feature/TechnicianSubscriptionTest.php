@@ -318,6 +318,8 @@ class TechnicianSubscriptionTest extends TestCase
 
         $payment = DB::table('subscription_payments')->first();
         $paymentId = (int) $payment->id;
+        $this->assertLessThanOrEqual(40, strlen($payment->gcash_reference));
+        $this->assertMatchesRegularExpression('/\ADEMO-[A-F0-9]{32}\z/', $payment->gcash_reference);
         $checkoutResponse->assertRedirect('/technician/subscription/demo/'.$paymentId);
 
         $this->actingAs($technician)

@@ -486,10 +486,12 @@ class TechnicianSubscriptionController extends Controller
                 'updated_at' => now(),
             ]);
 
+            $reference = 'DEMO-'.Str::upper(str_replace('-', '', (string) Str::uuid()));
+
             return DB::table('subscription_payments')->insertGetId([
                 'subscription_id' => $subscriptionId,
                 'user_id' => auth()->id(),
-                'gcash_reference' => 'DEMO-'.Str::upper((string) Str::uuid()),
+                'gcash_reference' => $reference,
                 'proof_path' => '',
                 'status' => 'pending',
                 'payment_provider' => 'demo',
