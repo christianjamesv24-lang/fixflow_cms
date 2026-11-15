@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CustomerRequestNotifier;
 use Illuminate\Support\Facades\DB;
 
 class CustomerController extends Controller
@@ -246,6 +247,13 @@ class CustomerController extends Controller
                 'changed_by' => $user->id,
                 'created_at' => $createdAt,
             ]);
+
+            app(CustomerRequestNotifier::class)->notify(
+                (int) $user->id,
+                $requestId,
+                'Request submitted',
+                'We received your service request. You will be notified as soon as a technician responds.'
+            );
 
             $technicianIds = DB::table('users as u')
                 ->where('u.role', 'technician')

@@ -38,7 +38,7 @@ class CustomerRequestFormTest extends TestCase
             ->assertDontSee('<img class="brand-mark-image"', false);
     }
 
-    public function test_new_customer_requests_notify_only_eligible_technicians(): void
+    public function test_new_customer_requests_notify_the_customer_and_only_eligible_technicians(): void
     {
         $customer = $this->createCustomer();
         $technician = $this->createTechnician('available@example.com', true);
@@ -67,6 +67,11 @@ class CustomerRequestFormTest extends TestCase
         $this->assertNotNull($createdRequest);
         $response->assertRedirect('/customer/requests/'.$createdRequest->id);
 
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $customer->id,
+            'title' => 'Request submitted',
+            'target_url' => url('/customer/requests/'.$createdRequest->id),
+        ]);
         $this->assertDatabaseHas('user_notifications', [
             'user_id' => $technician->id,
             'title' => 'New customer request available',

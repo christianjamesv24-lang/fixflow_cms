@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CustomerRequestNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
@@ -242,6 +243,13 @@ class AdminController extends Controller
             [$request['id'], 'assigned', 'Assigned to '.$technician['name'].'.', auth()->id()]
         );
 
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Technician assigned',
+            $technician['name'].' has been assigned to request #'.$request['ticket_no'].'.'
+        );
+
         $this->log('assign_technician', 'Assigned '.$technician['name'].' to '.$request['ticket_no']);
         $this->flash('success', $technician['name'].' has been assigned to '.$request['ticket_no'].'.');
 
@@ -300,6 +308,13 @@ class AdminController extends Controller
         db_insert(
             'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
             [$request['id'], $status, $note !== '' ? $note : 'Status updated by an administrator.', auth()->id()]
+        );
+
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Job status updated',
+            'Your request #'.$request['ticket_no'].' is now marked as '.str_replace('_', ' ', $status).'.'
         );
 
         $this->log('status_update', 'Moved '.$request['ticket_no'].' to '.$status);
@@ -383,6 +398,13 @@ class AdminController extends Controller
                 'Appointment scheduled for '.date('M j, Y', strtotime($date)).' at '.date('g:i A', strtotime($time)).'.',
                 auth()->id(),
             ]
+        );
+
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Appointment scheduled',
+            'Your appointment for request #'.$request['ticket_no'].' is scheduled for '.date('M j, Y', strtotime($date)).' at '.date('g:i A', strtotime($time)).'.'
         );
 
         $this->log('schedule', 'Scheduled appointment for '.$request['ticket_no']);

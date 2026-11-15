@@ -10,7 +10,7 @@ When PayMongo is configured, technicians are sent to PayMongo Hosted Checkout to
 
 After approval, the technician subscription page shows the payment amount, method, reference, payment date, and paid-through date. Plan choices stay hidden while an active subscription is in good standing; the technician can reveal them to extend or renew, and they reappear automatically when cancellation is scheduled or the plan expires. Technicians can schedule cancellation at the end of the current paid period; their access remains active until that date, and the payment is not refunded. Subscriptions are currently one-time payments, not automatic recurring charges. A pending renewal must be resolved before cancellation can be scheduled.
 
-Technicians receive notification-bell alerts when an eligible new customer request is posted, a subscription payment or extension is approved, or cancellation is scheduled. A three-day expiration reminder is created by the existing notification polling while the technician is signed in. Available requests show the appliance and issue while keeping the customer's contact details and exact address private until assignment.
+Admins, technicians, and customers can open the notification center from the bell; admins and technicians can also use **More → Notifications**. Opening Messages does not clear unrelated notifications. The center includes customer request and job updates, request chat messages, technician subscription approvals and cancellations, and a three-day expiration reminder generated while notification polling is active. Available requests show the appliance and issue while keeping the customer's contact details and exact address private until assignment.
 
 To configure PayMongo:
 

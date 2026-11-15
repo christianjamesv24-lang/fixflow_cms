@@ -16,6 +16,7 @@ if ($role === 'admin') {
         ['label' => 'Messages', 'path' => '/admin/messages'],
     ];
     $moreNav = [
+        ['label' => 'Notifications', 'path' => '/notifications'],
         ['label' => 'Appointments', 'path' => '/admin/appointments'],
         ['label' => 'Reports', 'path' => '/admin/reports'],
         ['label' => 'Feedback', 'path' => '/admin/feedback'],
@@ -34,6 +35,9 @@ if ($role === 'admin') {
         ['label' => 'Messages', 'path' => '/chat'],
         ['label' => 'Subscription', 'path' => '/technician/subscription'],
     ];
+    $moreNav = [
+        ['label' => 'Notifications', 'path' => '/notifications'],
+    ];
 } else {
     $primaryNav = [
         ['label' => 'Dashboard', 'path' => '/customer', 'exact' => true],
@@ -49,7 +53,7 @@ if ($role === 'admin') {
 
 $notificationCount = 0;
 $lastNotificationId = 0;
-$notificationPollingEnabled = in_array($role, ['admin', 'technician'], true);
+$notificationPollingEnabled = in_array($role, ['admin', 'technician', 'customer'], true);
 
 if ($notificationPollingEnabled) {
     $notificationCount = (int) db_value(
@@ -109,7 +113,7 @@ foreach ($moreNav as $item) {
                    href="<?= e(url($item['path'])) ?>"
                    <?= $isActiveNavItem($item) ? 'aria-current="page"' : '' ?>>
                     <?= e($item['label']) ?>
-                    <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
+                    <?php if ($item['path'] === '/notifications' && $notificationPollingEnabled): ?>
                         <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
                     <?php endif; ?>
                     <?php if ($item['path'] === '/admin/messages' && $unreadMessages > 0): ?>
@@ -128,7 +132,7 @@ foreach ($moreNav as $item) {
                                href="<?= e(url($item['path'])) ?>"
                                <?= $isActiveNavItem($item) ? 'aria-current="page"' : '' ?>>
                                 <?= e($item['label']) ?>
-                                <?php if ($item['path'] === '/chat' && $notificationPollingEnabled): ?>
+                                <?php if ($item['path'] === '/notifications' && $notificationPollingEnabled): ?>
                                     <span class="nav-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>
                                 <?php endif; ?>
                             </a>
@@ -146,12 +150,12 @@ foreach ($moreNav as $item) {
             <?php endif; ?>
             <?php if ($notificationPollingEnabled): ?>
                 <a class="icon-btn topbar-notifications"
-                   href="<?= e(url('/chat')) ?>"
+                   href="<?= e(url('/notifications')) ?>"
                    aria-label="<?= $notificationCount ?> unread notifications"
                    title="Notifications"
                    data-notification-poll
                    data-notification-url="<?= e(url('/notifications/poll')) ?>"
-                   data-notification-target="<?= e(url('/chat')) ?>"
+                   data-notification-target="<?= e(url('/notifications')) ?>"
                    data-last-notification-id="<?= $lastNotificationId ?>">
                     <?= icon('bell') ?>
                     <span class="notification-count" data-notification-count<?= $notificationCount === 0 ? ' hidden' : '' ?>><?= $notificationCount ?></span>

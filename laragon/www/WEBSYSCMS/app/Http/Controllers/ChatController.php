@@ -32,7 +32,7 @@ class ChatController extends Controller
             db_exec('UPDATE chat_messages SET is_read = 1 WHERE conversation_id = ? AND receiver_id = ?', [$conversation['id'], $user->id]);
         }
 
-        db_exec('UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND type = ?', [$user->id, 'info']);
+        db_exec('UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND title = ?', [$user->id, 'New message']);
 
         return view('chat.index', [
             'title' => 'Live chat',
@@ -40,14 +40,17 @@ class ChatController extends Controller
             'peer' => $peer,
             'conversation' => $conversation,
             'messages' => $messages,
-            'notificationCount' => (int) db_value('SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0', [$user->id]),
+            'notificationCount' => (int) db_value(
+                'SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0 AND title = ?',
+                [$user->id, 'New message']
+            ),
         ]);
     }
 
     public function notifications(Request $request): JsonResponse
     {
         $user = auth()->user();
-        if (! $user || ! in_array($user->role, ['admin', 'technician'], true)) {
+        if (! $user || ! in_array($user->role, ['admin', 'technician', 'customer'], true)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -134,8 +137,8 @@ class ChatController extends Controller
                 'messages' => [],
                 'peer' => $peer,
                 'notification_count' => (int) db_value(
-                    'SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0',
-                    [$user->id]
+                    'SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0 AND title = ?',
+                    [$user->id, 'New message']
                 ),
             ]);
         }
@@ -156,7 +159,10 @@ class ChatController extends Controller
         return response()->json([
             'messages' => $messages,
             'peer' => $peer,
-            'notification_count' => (int) db_value('SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0', [$user->id]),
+            'notification_count' => (int) db_value(
+                'SELECT COUNT(*) FROM user_notifications WHERE user_id = ? AND is_read = 0 AND title = ?',
+                [$user->id, 'New message']
+            ),
         ]);
     }
 
@@ -197,10 +203,15 @@ class ChatController extends Controller
             [$timestamp, $timestamp, $conversation['id']]
         );
 
-        db_insert(
-            'INSERT INTO user_notifications (user_id, title, body, type, is_read, created_at) VALUES (?, ?, ?, ?, 0, ?)',
-            [$peer['id'], 'New message', $user->name.': '.$message, 'info', $timestamp]
-        );
+        DB::table('user_notifications')->insert([
+            'user_id' => $peer['id'],
+            'title' => 'New message',
+            'body' => $user->name.': '.$message,
+            'type' => 'info',
+            'is_read' => false,
+            'target_url' => url('/chat'),
+            'created_at' => $timestamp,
+        ]);
 
         $record = db_one('SELECT m.*, s.name AS sender_name FROM chat_messages m JOIN users s ON s.id = m.sender_id WHERE m.id = ?', [$messageId]);
 
@@ -228,7 +239,7 @@ class ChatController extends Controller
         }
 
         db_exec('UPDATE chat_messages SET is_read = 1 WHERE conversation_id = ? AND receiver_id = ?', [$conversation['id'], $user->id]);
-        db_exec('UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND type = ?', [$user->id, 'info']);
+        db_exec('UPDATE user_notifications SET is_read = 1 WHERE user_id = ? AND title = ?', [$user->id, 'New message']);
 
         return response()->json(['ok' => true]);
     }
@@ -309,7 +320,7 @@ class ChatController extends Controller
                 ? (int) $serviceRequest['technician_id']
                 : (int) $serviceRequest['customer_id'];
 
-            return (int) DB::table('request_chat_messages')->insertGetId([
+            $messageId = (int) DB::table('request_chat_messages')->insertGetId([
                 'request_id' => $id,
                 'sender_id' => $user->id,
                 'receiver_id' => $receiverId,
@@ -322,6 +333,18 @@ class ChatController extends Controller
                 'accuracy' => $messageType === 'location' ? ($data['accuracy'] ?? null) : null,
                 'is_read' => false,
             ]);
+
+            DB::table('user_notifications')->insert([
+                'user_id' => $receiverId,
+                'title' => 'New message',
+                'body' => $user->name.' sent a message about request #'.$serviceRequest['ticket_no'].'.',
+                'type' => 'info',
+                'is_read' => false,
+                'target_url' => url('/service-requests/'.$id.'/chat'),
+                'created_at' => now(),
+            ]);
+
+            return $messageId;
         });
 
         $record = db_one(

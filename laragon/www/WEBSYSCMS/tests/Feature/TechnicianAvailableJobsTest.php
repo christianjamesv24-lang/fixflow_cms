@@ -72,6 +72,30 @@ class TechnicianAvailableJobsTest extends TestCase
             ->assertDontSee('SR-SEARCH-1001');
     }
 
+    public function test_accepting_a_job_notifies_the_customer(): void
+    {
+        $technician = $this->createTechnician();
+        $customer = $this->createUser('customer', 'accept-customer@example.com');
+        $categoryId = (int) DB::table('service_categories')->where('slug', 'refrigerator')->value('id');
+
+        $this->createRequest($customer, $categoryId, [
+            'ticket_no' => 'SR-ACCEPT-1001',
+            'technician_id' => $technician->id,
+            'status' => 'assigned',
+        ]);
+        $requestId = (int) DB::table('service_requests')->where('ticket_no', 'SR-ACCEPT-1001')->value('id');
+
+        $this->actingAs($technician)
+            ->post('/technician/jobs/'.$requestId.'/accept')
+            ->assertRedirect('/technician/jobs/'.$requestId);
+
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $customer->id,
+            'title' => 'Your request was accepted',
+            'target_url' => url('/customer/requests/'.$requestId),
+        ]);
+    }
+
     private function createTechnician(): User
     {
         $technician = $this->createUser('technician', 'available-technician@example.com');

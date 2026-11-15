@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CustomerRequestNotifier;
 use Illuminate\Support\Facades\DB;
 
 class TechnicianController extends Controller
@@ -215,14 +216,27 @@ class TechnicianController extends Controller
             return redirect('/technician/jobs/'.$request['id']);
         }
 
-        db_exec("UPDATE service_requests SET status = 'accepted', updated_at = NOW() WHERE id = ?", [$request['id']]);
-        db_exec(
-            "UPDATE appointments SET status = 'confirmed', updated_at = NOW() WHERE request_id = ? AND status = 'scheduled'",
-            [$request['id']]
-        );
-        db_insert(
-            'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
-            [$request['id'], 'accepted', 'Technician accepted the job and confirmed the appointment.', $user->id]
+        DB::table('service_requests')->where('id', $request['id'])->update([
+            'status' => 'accepted',
+            'updated_at' => now(),
+        ]);
+        DB::table('appointments')
+            ->where('request_id', $request['id'])
+            ->where('status', 'scheduled')
+            ->update(['status' => 'confirmed', 'updated_at' => now()]);
+        DB::table('request_status_history')->insert([
+            'request_id' => $request['id'],
+            'status' => 'accepted',
+            'note' => 'Technician accepted the job and confirmed the appointment.',
+            'changed_by' => $user->id,
+            'created_at' => now(),
+        ]);
+
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Your request was accepted',
+            $user->name.' accepted request #'.$request['ticket_no'].' and confirmed the appointment.'
         );
 
         $this->log('accept_job', 'Accepted job '.$request['ticket_no']);
@@ -256,6 +270,13 @@ class TechnicianController extends Controller
             [$request['id'], 'pending', 'Technician declined the job. Returned to the assignment queue.', $user->id]
         );
 
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Technician assignment updated',
+            'The technician could not take request #'.$request['ticket_no'].'. It is back in the assignment queue.'
+        );
+
         $this->log('reject_job', 'Declined job '.$request['ticket_no']);
         $this->flash('info', 'Job declined and returned to the assignment queue.');
 
@@ -284,6 +305,13 @@ class TechnicianController extends Controller
         db_insert(
             'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
             [$request['id'], 'in_progress', 'Technician arrived on site and started the job.', $user->id]
+        );
+
+        app(CustomerRequestNotifier::class)->notify(
+            (int) $request['customer_id'],
+            (int) $request['id'],
+            'Job status updated',
+            'Your request #'.$request['ticket_no'].' is now in progress.'
         );
 
         $this->log('start_job', 'Started job '.$request['ticket_no']);
@@ -379,6 +407,13 @@ class TechnicianController extends Controller
             db_insert(
                 'INSERT INTO request_status_history (request_id, status, note, changed_by, created_at) VALUES (?, ?, ?, ?, NOW())',
                 [$request['id'], 'completed', 'Service completed and report submitted. Final cost: '.money($data['final_cost']), $user->id]
+            );
+
+            app(CustomerRequestNotifier::class)->notify(
+                (int) $request['customer_id'],
+                (int) $request['id'],
+                'Job status updated',
+                'Your request #'.$request['ticket_no'].' is complete. Review the service report and share your feedback.'
             );
         });
 

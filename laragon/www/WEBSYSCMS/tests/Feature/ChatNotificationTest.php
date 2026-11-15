@@ -33,6 +33,12 @@ class ChatNotificationTest extends TestCase
             ->get('/chat')
             ->assertOk()
             ->assertSee('data-last-message-id="1"', false);
+
+        $this->assertDatabaseHas('user_notifications', [
+            'user_id' => $technician->id,
+            'title' => 'New message',
+            'is_read' => true,
+        ]);
     }
 
     public function test_notification_poll_only_returns_new_unread_notifications_for_the_signed_in_user(): void
@@ -112,6 +118,8 @@ class ChatNotificationTest extends TestCase
             ->assertOk()
             ->assertSee('data-notification-poll', false)
             ->assertSee('data-notification-url=', false)
+            ->assertSee('data-notification-target="'.url('/notifications').'"', false)
+            ->assertSee('href="'.url('/notifications').'"', false)
             ->assertSee('1 unread notifications', false)
             ->assertSee('class="nav-count" data-notification-count>1</span>', false);
     }
@@ -135,7 +143,127 @@ class ChatNotificationTest extends TestCase
             ->assertOk()
             ->assertSee('data-notification-poll', false)
             ->assertSee('data-notification-url=', false)
+            ->assertSee('data-notification-target="'.url('/notifications').'"', false)
+            ->assertSee('href="'.url('/notifications').'"', false)
             ->assertSee('1 unread notifications', false);
+    }
+
+    public function test_customer_can_open_the_notification_center_and_poll_updates(): void
+    {
+        $customer = $this->createUser('customer');
+
+        DB::table('user_notifications')->insert([
+            'user_id' => $customer->id,
+            'title' => 'Request submitted',
+            'body' => 'We received your service request.',
+            'type' => 'info',
+            'is_read' => false,
+            'target_url' => url('/customer/requests/1'),
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($customer)
+            ->get('/notifications')
+            ->assertOk()
+            ->assertSee('Notifications')
+            ->assertSee('Request submitted')
+            ->assertSee('data-notification-target="'.url('/notifications').'"', false)
+            ->assertSee('href="'.url('/notifications').'"', false);
+
+        $this->actingAs($customer)
+            ->getJson('/notifications/poll?after_id=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.title', 'Request submitted');
+    }
+
+    public function test_notification_center_lists_only_the_current_users_notifications_and_opens_owned_items(): void
+    {
+        $admin = $this->createUser('admin');
+        $technician = $this->createUser('technician');
+
+        $adminNotificationId = DB::table('user_notifications')->insertGetId([
+            'user_id' => $admin->id,
+            'title' => 'Request assigned',
+            'body' => 'A request was assigned to a technician.',
+            'type' => 'info',
+            'is_read' => false,
+            'target_url' => url('/admin/requests'),
+            'created_at' => now(),
+        ]);
+        DB::table('user_notifications')->insert([
+            'user_id' => $technician->id,
+            'title' => 'Private technician notice',
+            'body' => 'This notice belongs to another account.',
+            'type' => 'info',
+            'is_read' => false,
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get('/notifications')
+            ->assertOk()
+            ->assertSee('Notifications')
+            ->assertSee('Request assigned')
+            ->assertDontSee('Private technician notice');
+
+        $this->actingAs($admin)
+            ->get('/notifications/'.$adminNotificationId.'/open')
+            ->assertRedirect('/admin/requests');
+
+        $this->assertDatabaseHas('user_notifications', [
+            'id' => $adminNotificationId,
+            'user_id' => $admin->id,
+            'is_read' => true,
+        ]);
+
+        $this->actingAs($technician)
+            ->get('/notifications/'.$adminNotificationId.'/open')
+            ->assertNotFound();
+    }
+
+    public function test_notification_center_can_mark_all_of_the_current_users_notifications_read(): void
+    {
+        $admin = $this->createUser('admin');
+        $technician = $this->createUser('technician');
+
+        foreach ([$admin->id, $technician->id] as $userId) {
+            DB::table('user_notifications')->insert([
+                'user_id' => $userId,
+                'title' => 'Subscription update',
+                'body' => 'A subscription update is available.',
+                'type' => 'info',
+                'is_read' => false,
+                'created_at' => now(),
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->post('/notifications/read-all')
+            ->assertRedirect('/notifications');
+
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $admin->id, 'is_read' => true]);
+        $this->assertDatabaseHas('user_notifications', ['user_id' => $technician->id, 'is_read' => false]);
+    }
+
+    public function test_opening_chat_does_not_clear_non_chat_notifications(): void
+    {
+        $admin = $this->createUser('admin');
+        $notificationId = DB::table('user_notifications')->insertGetId([
+            'user_id' => $admin->id,
+            'title' => 'Subscription payment approved',
+            'body' => 'Your subscription is active.',
+            'type' => 'info',
+            'is_read' => false,
+            'created_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->get('/chat')->assertOk();
+
+        $this->assertDatabaseHas('user_notifications', [
+            'id' => $notificationId,
+            'is_read' => false,
+        ]);
     }
 
     private function createUser(string $role): User

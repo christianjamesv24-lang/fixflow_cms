@@ -9,6 +9,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CustomerAddressController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PayMongoWebhookController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TechnicianController;
@@ -35,7 +36,14 @@ Route::get('/register', [AuthController::class, 'showRegister']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::get('/logout', [AuthController::class, 'logout']);
 
-Route::middleware('role:admin,technician')->get('/notifications/poll', [ChatController::class, 'notifications']);
+Route::middleware('role:admin,technician,customer')->get('/notifications/poll', [ChatController::class, 'notifications']);
+
+Route::middleware('role:admin,technician,customer')->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::get('/notifications/{id}/open', [NotificationController::class, 'open'])->whereNumber('id');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->whereNumber('id');
+});
 
 Route::middleware(['role:admin,technician', 'technician.approved', 'subscription'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index']);
